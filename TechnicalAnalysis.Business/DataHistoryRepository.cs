@@ -1,0 +1,40 @@
+﻿using Binance.Net.Enums;
+using Binance.Net.Interfaces.Clients.UsdFuturesApi;
+using MakeMeRich.Binance.Services.Interfaces;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace TechnicalAnalysis.Business
+{
+    public class DataHistoryRepository : IDataHistoryRepository
+    {
+        public async Task<DataHistory> GetData(string symbol, IBinanceClientUsdFuturesApi _client)
+        {
+            var task1 = await _client.ExchangeData.GetKlinesAsync(symbol, KlineInterval.FiveMinutes, null, null, 100).ConfigureAwait(false);
+            var dataHistory = ParseJson(task1.Data);
+            return dataHistory;
+        }
+
+        private static DataHistory ParseJson(IEnumerable<Binance.Net.Interfaces.IBinanceKline> data)
+        {
+            var candles = new List<Candle>();
+
+            foreach(var position in data)
+            {
+                Candle candle = new Candle()
+                {
+                    Close = ((double)position.ClosePrice),
+                    Open = ((double)position.OpenPrice),
+                    High = ((double)position.HighPrice),
+                    Low = ((double)position.LowPrice),
+                    Volumefrom = ((double)position.Volume),
+                    Volumeto = ((double)position.Volume),
+                };
+
+                candles.Add(candle);
+            }
+            
+            return new DataHistory(candles);
+        }
+    }
+}
