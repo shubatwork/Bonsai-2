@@ -54,7 +54,8 @@ namespace Bonsai.Services
                                 Symbol = position.Symbol,
                                 Mode = CommonOrderSide.Buy
                             };
-                            await CreatePosition(symbolData, 10).ConfigureAwait(false);
+                            await CreatePosition(symbolData, 25).ConfigureAwait(false);
+                            return;
                         }
                         if (hourlyMacd?.OrderSide == CommonOrderSide.Sell && rsiValue > 20)
                         {
@@ -64,7 +65,8 @@ namespace Bonsai.Services
                                 Symbol = position.Symbol,
                                 Mode = CommonOrderSide.Sell
                             };
-                            await CreatePosition(symbolData, 10).ConfigureAwait(false);
+                            await CreatePosition(symbolData, 25).ConfigureAwait(false);
+                            return;
                         }
                     }
                 }
@@ -82,6 +84,21 @@ namespace Bonsai.Services
                 listOfAdx.Add(dataAIndicator.Real[i]);
             }
             var isTrending = IsStrictlyIncreasing(listOfAdx);
+
+            return new AdxFinalResult { AdxValue = currentAdx, IsTrending = isTrending };
+        }
+
+        private static AdxFinalResult GetAdxValueForClose(DataHistory data)
+        {
+            data.ComputeAdx();
+            AdxResult dataAIndicator = (AdxResult)data.Indicators[Indicator.Adx];
+            var currentAdx = dataAIndicator.Real[dataAIndicator.NBElement - 1];
+            var listOfAdx = new List<double>();
+            for (int i = dataAIndicator.NBElement - 5; i <= dataAIndicator.NBElement - 1; i++)
+            {
+                listOfAdx.Add(dataAIndicator.Real[i]);
+            }
+            var isTrending = IsStrictlyDecreasing(listOfAdx);
 
             return new AdxFinalResult { AdxValue = currentAdx, IsTrending = isTrending };
         }
@@ -181,22 +198,17 @@ namespace Bonsai.Services
                    x != null &&
                    x.Quantity != 0).ToList();
 
-            foreach (var position in positionsToBeAnalyzed)
+            foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl > 1M))
             {
-                var data = await _dataHistoryRepository.GetDataByInterval(position.Symbol, _client, Binance.Net.Enums.KlineInterval.OneHour).ConfigureAwait(false);
-                var hourlyAdx = GetAdxValue(data);
-                if (!hourlyAdx.IsTrending)
+                switch (position?.Quantity)
                 {
-                    switch (position?.Quantity)
-                    {
-                        case > 0:
-                            await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Quantity, true);
-                            break;
+                    case > 0:
+                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Quantity, true);
+                        break;
 
-                        case < 0:
-                            await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Quantity, true);
-                            break;
-                    }
+                    case < 0:
+                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Quantity, true);
+                        break;
                 }
             }
         }

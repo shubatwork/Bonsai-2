@@ -1,7 +1,7 @@
 
 {
     "region" : "ap-south-1",
-    "configuration" : "Debug",
+    "configuration" : "Release",
     "framework"     : "net7.0",
     "self-contained" : true,
     "application"    : "MakeMeRich",
