@@ -9,7 +9,6 @@ namespace MakeMeRich.Binance.Services
     public class ProfitService : IProfitService
     {
         private readonly IBinanceClientUsdFuturesApi _client;
-        private readonly decimal maxProfit = .1M;
 
         public ProfitService()
         {
@@ -19,21 +18,39 @@ namespace MakeMeRich.Binance.Services
         {
             var positionsAvailableData =
                 await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
-            foreach (var position in positionsAvailableData.Data.Where(x => x.Quantity != 0 && x.UnrealizedPnl > maxProfit).ToList())
+            var profit = positionsAvailableData.Data.Where(x => x.Quantity != 0).Sum(x => x.UnrealizedPnl);
+            if (profit > 1M)
             {
-                switch (position.Quantity)
+                var positionToClose = positionsAvailableData.Data.Where(x => x.Quantity != 0).MaxBy(x => x.UnrealizedPnl);
+
+                switch (positionToClose?.Quantity)
                 {
                     case > 0:
-                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Quantity, true);
+                        await CreateOrdersLogic(positionToClose.Symbol, CommonOrderSide.Sell, positionToClose.Quantity, true);
                         break;
 
                     case < 0:
-                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Quantity, true);
+                        await CreateOrdersLogic(positionToClose.Symbol, CommonOrderSide.Buy, positionToClose.Quantity, true);
+                        break;
+                }
+            }
+            if (profit < -1M)
+            {
+                var positionToClose = positionsAvailableData.Data.Where(x => x.Quantity != 0).MinBy(x => x.UnrealizedPnl);
+
+                switch (positionToClose?.Quantity)
+                {
+                    case > 0:
+                        await CreateOrdersLogic(positionToClose.Symbol, CommonOrderSide.Sell, positionToClose.Quantity, true);
+                        break;
+
+                    case < 0:
+                        await CreateOrdersLogic(positionToClose.Symbol, CommonOrderSide.Buy, positionToClose.Quantity, true);
                         break;
                 }
             }
         }
-        
+
         private async Task CreateOrdersLogic(string symbol, CommonOrderSide orderSide, decimal quantity, bool isGreaterThanMaxProfit)
         {
             if (!isGreaterThanMaxProfit)

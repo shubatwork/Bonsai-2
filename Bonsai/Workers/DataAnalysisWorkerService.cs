@@ -1,4 +1,6 @@
 ﻿using Bonsai.Services;
+using MakeMeRich.Binance.Services;
+using MakeMeRich.Binance.Services.Interfaces;
 
 namespace Bonsai.Workers;
 
@@ -6,12 +8,13 @@ public class DataAnalysisWorkerService : BackgroundService
 {
     private readonly IDataAnalysisService _dataAnalysisService;
 
-    public DataAnalysisWorkerService(IDataAnalysisService dataAnalysisService)
+    public DataAnalysisWorkerService(IDataAnalysisService dataAnalysisService, IProfitService profitService)
     {
         _dataAnalysisService = dataAnalysisService;
+        _profitService = profitService;
     }
 
-    private const int GeneralDelay = 1000 * 60 * 15;
+    private const int GeneralDelay = 1000 * 60 * 5;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -27,7 +30,8 @@ public class DataAnalysisWorkerService : BackgroundService
 
     private async Task<bool> DoBackupAsync()
     {
-        await _dataAnalysisService.GetData().ConfigureAwait(false);
+        await _dataAnalysisService.CreatePositions().ConfigureAwait(false);
+        await _dataAnalysisService.ClosePositions().ConfigureAwait(false);
         return true;
     }
 }

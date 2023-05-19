@@ -2,6 +2,8 @@
 {
     public interface IDataAnalysisService
     {
-        Task GetData();
+        Task CreatePositions();
+
+        Task ClosePositions();
     }
 }
