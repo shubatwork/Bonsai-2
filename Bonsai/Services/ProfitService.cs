@@ -2,9 +2,8 @@
 using Binance.Net.Interfaces.Clients.UsdFuturesApi;
 using Bonsai;
 using CryptoExchange.Net.CommonObjects;
-using MakeMeRich.Binance.Services.Interfaces;
 
-namespace MakeMeRich.Binance.Services
+namespace Bonsai.Services
 {
     public class ProfitService : IProfitService
     {

@@ -1,4 +1,4 @@
-﻿using MakeMeRich.Binance.Services.Interfaces;
+﻿using Bonsai.Services;
 
 namespace Bonsai.Workers;
 

@@ -21,8 +21,14 @@ namespace Bonsai.Services
 
         public async Task CreatePositions()
         {
+            var final = new List<FinalResult>();
             var positionsAvailableData =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
+
+            if (positionsAvailableData.Data.Count(x => x.Quantity != 0) >= 2)
+            {
+                return;
+            }
 
             var positionsToBeAnalyzed = positionsAvailableData.Data
                 .Where(x =>
@@ -36,7 +42,7 @@ namespace Bonsai.Services
 
             foreach (var position in positionsToBeAnalyzed)
             {
-                var data = await _dataHistoryRepository.GetDataByInterval(position.Symbol, _client, Binance.Net.Enums.KlineInterval.OneHour).ConfigureAwait(false);
+                var data = await _dataHistoryRepository.GetDataByInterval(position.Symbol, _client, Binance.Net.Enums.KlineInterval.FiveMinutes).ConfigureAwait(false);
                 var hourlyAdx = GetAdxValue(data);
                 if (hourlyAdx.IsTrending && hourlyAdx.AdxValue > 25)
                 {
@@ -48,28 +54,55 @@ namespace Bonsai.Services
                         var rsiValue = dataAIndicator.Real[dataAIndicator.NBElement - 1];
                         if (hourlyMacd?.OrderSide == CommonOrderSide.Buy && rsiValue < 80)
                         {
-                            var symbolData = new SymbolData
+                            final.Add(new FinalResult
                             {
-                                CurrentPrice = position!.MarkPrice!.Value,
-                                Symbol = position.Symbol,
-                                Mode = CommonOrderSide.Buy
-                            };
-                            await CreatePosition(symbolData, 25).ConfigureAwait(false);
-                            return;
+                                AdxValue = hourlyAdx.AdxValue,
+                                Position = position,
+                                OrderSide = CommonOrderSide.Buy
+                            });
                         }
                         if (hourlyMacd?.OrderSide == CommonOrderSide.Sell && rsiValue > 20)
                         {
-                            var symbolData = new SymbolData
+                            final.Add(new FinalResult
                             {
-                                CurrentPrice = position!.MarkPrice!.Value,
-                                Symbol = position.Symbol,
-                                Mode = CommonOrderSide.Sell
-                            };
-                            await CreatePosition(symbolData, 25).ConfigureAwait(false);
-                            return;
+                                AdxValue = hourlyAdx.AdxValue,
+                                Position = position,
+                                OrderSide = CommonOrderSide.Sell
+                            });
                         }
                     }
                 }
+
+                var finalPosition = final.MaxBy(x => x.AdxValue);
+
+                if (finalPosition != null)
+                {
+                    var symbolData = new SymbolData
+                    {
+                        CurrentPrice = finalPosition.Position!.MarkPrice!.Value,
+                        Symbol = finalPosition.Position.Symbol,
+                        Mode = finalPosition.OrderSide
+                    };
+
+                    var existingPosition = positionsAvailableData.Data.FirstOrDefault(x => x.Quantity != 0);
+                    if (existingPosition != null)
+                    {
+                        if (existingPosition.Quantity > 0 && symbolData.Mode == CommonOrderSide.Sell)
+                        {
+                            await CreatePosition(symbolData, 100).ConfigureAwait(false);
+                            return;
+                        }
+                        if (existingPosition.Quantity < 0 && symbolData.Mode == CommonOrderSide.Buy)
+                        {
+                            await CreatePosition(symbolData, 100).ConfigureAwait(false);
+                            return;
+                        }
+                    }
+
+                    await CreatePosition(symbolData, 100).ConfigureAwait(false);
+                    return;
+                }
+
             }
         }
 
@@ -79,7 +112,7 @@ namespace Bonsai.Services
             AdxResult dataAIndicator = (AdxResult)data.Indicators[Indicator.Adx];
             var currentAdx = dataAIndicator.Real[dataAIndicator.NBElement - 1];
             var listOfAdx = new List<double>();
-            for (int i = dataAIndicator.NBElement - 5; i <= dataAIndicator.NBElement - 1; i++)
+            for (int i = dataAIndicator.NBElement - 2; i <= dataAIndicator.NBElement - 1; i++)
             {
                 listOfAdx.Add(dataAIndicator.Real[i]);
             }
@@ -88,53 +121,24 @@ namespace Bonsai.Services
             return new AdxFinalResult { AdxValue = currentAdx, IsTrending = isTrending };
         }
 
-        private static AdxFinalResult GetAdxValueForClose(DataHistory data)
-        {
-            data.ComputeAdx();
-            AdxResult dataAIndicator = (AdxResult)data.Indicators[Indicator.Adx];
-            var currentAdx = dataAIndicator.Real[dataAIndicator.NBElement - 1];
-            var listOfAdx = new List<double>();
-            for (int i = dataAIndicator.NBElement - 5; i <= dataAIndicator.NBElement - 1; i++)
-            {
-                listOfAdx.Add(dataAIndicator.Real[i]);
-            }
-            var isTrending = IsStrictlyDecreasing(listOfAdx);
-
-            return new AdxFinalResult { AdxValue = currentAdx, IsTrending = isTrending };
-        }
-
         private static MacdFinalResult? GetMacdValue(DataHistory data)
         {
             data.ComputeMacd();
             MacdResult dataAIndicator = (MacdResult)data.Indicators[Indicator.Macd];
-            var macdValue = dataAIndicator.MacdValue[dataAIndicator.NBElement - 1];
-            var macdSignalValue = dataAIndicator.MacdSignal[dataAIndicator.NBElement - 1];
-
-            if (macdValue > macdSignalValue)
+            var listOfMacdValue = new List<double>();
+            for (int i = dataAIndicator.NBElement - 2; i <= dataAIndicator.NBElement - 1; i++)
             {
-                var listOfMacdValue = new List<double>();
-                for (int i = dataAIndicator.NBElement - 5; i <= dataAIndicator.NBElement - 1; i++)
-                {
-                    listOfMacdValue.Add(dataAIndicator.MacdValue[i]);
-                }
-                var isofUse = IsStrictlyIncreasing(listOfMacdValue);
-                if (isofUse == true)
-                {
-                    return new MacdFinalResult { OrderSide = CommonOrderSide.Buy };
-                }
+                listOfMacdValue.Add(dataAIndicator.MacdValue[i]);
             }
-            if (macdValue < macdSignalValue)
+            var isIncerasing = IsStrictlyIncreasing(listOfMacdValue);
+            if (isIncerasing == true)
             {
-                var listOfMacdValue = new List<double>();
-                for (int i = dataAIndicator.NBElement - 5; i <= dataAIndicator.NBElement - 1; i++)
-                {
-                    listOfMacdValue.Add(dataAIndicator.MacdValue[i]);
-                }
-                var isofUse = IsStrictlyDecreasing(listOfMacdValue);
-                if (isofUse == true)
-                {
-                    return new MacdFinalResult { OrderSide = CommonOrderSide.Sell };
-                }
+                return new MacdFinalResult { OrderSide = CommonOrderSide.Buy };
+            }
+            var isDecreasing = IsStrictlyDecreasing(listOfMacdValue);
+            if (isDecreasing == true)
+            {
+                return new MacdFinalResult { OrderSide = CommonOrderSide.Sell };
             }
             return null;
         }
@@ -198,7 +202,7 @@ namespace Bonsai.Services
                    x != null &&
                    x.Quantity != 0).ToList();
 
-            foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl > 1M))
+            foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl > 0.5M || x.UnrealizedPnl < -0.5M))
             {
                 switch (position?.Quantity)
                 {

@@ -1,4 +1,4 @@
-﻿namespace MakeMeRich.Binance.Services.Interfaces
+﻿namespace Bonsai.Services
 {
     public interface IProfitService
     {
