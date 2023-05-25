@@ -2,8 +2,6 @@
 {
     public interface IDataAnalysisService
     {
-        Task CreatePositions();
-
-        Task ClosePositions();
+        Task<string?> CreatePositions(List<string> notToBeTakenPosition);
     }
 }

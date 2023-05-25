@@ -24,11 +24,7 @@ namespace Bonsai.Services
 
             foreach (var position in positionsToBeClosed.Data.Where(x => x.Quantity != 0))
             {
-                var slValue = 0.5M;
-                if(position.UnrealizedPnl > 0.25M)
-                {
-                    slValue = 0.25M;
-                }
+                var slValue = 1M;
                 switch (position.Quantity)
                 {
                     case > 0:
