@@ -22,9 +22,37 @@ namespace Bonsai.Services
 
         public async Task<string?> CreatePositions(List<string> notToBeTakenPosition)
         {
+            var positionsAvailableData =
+               await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
+            var accountInfo = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
+            var balance = accountInfo.Data.TotalMaintMargin / accountInfo.Data.TotalMarginBalance;
+            var closedPositionSymbol = await ClosePositions(positionsAvailableData.Data).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(closedPositionSymbol) && balance < 0.25M)
+            {
+                positionsAvailableData =
+                 await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
+                var increasePosition = positionsAvailableData.Data.Where(x => x.UnrealizedPnl > 0.03M && x.UnrealizedPnl < 0.06M).MaxBy(x => x.UnrealizedPnl);
+                if (increasePosition != null)
+                {
+                    var symbolData = new SymbolData
+                    {
+                        CurrentPrice = increasePosition!.MarkPrice!.Value,
+                        Symbol = increasePosition.Symbol,
+                        Mode = increasePosition.Quantity > 0 ? CommonOrderSide.Buy : CommonOrderSide.Sell
+                    };
+                    await CreatePosition(symbolData, 10).ConfigureAwait(false);
+                    return closedPositionSymbol;
+                }
+            }
+            
+            if (balance > 0.1M)
+            {
+                return null;
+            }
+
             CommonOrderSide? btcSide = null;
             var final = new List<FinalResult>();
-            var positionsAvailableData =
+            positionsAvailableData =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
             var task1 = await _client.ExchangeData.GetKlinesAsync("btcusdt", KlineInterval.OneHour, null, null, 1).ConfigureAwait(false);
             var btc = task1.Data.FirstOrDefault();
@@ -36,16 +64,6 @@ namespace Bonsai.Services
             if (btc!.OpenPrice > btcCurrent!.MarkPrice!.Value)
             {
                 btcSide = CommonOrderSide.Sell;
-            }
-
-            var closedPositionSymbol = await ClosePositions(btcSide).ConfigureAwait(false);
-
-            var accountInfo = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
-
-            var balance = accountInfo.Data.TotalMaintMargin / accountInfo.Data.TotalMarginBalance;
-            if (balance > 0.15M)
-            {
-                return null ;
             }
 
             var positionsToBeAnalyzed = positionsAvailableData.Data
@@ -193,26 +211,14 @@ namespace Bonsai.Services
         #endregion
 
         #region Close Position
-        public async Task<string?> ClosePositions(CommonOrderSide? btcMode)
+        public async Task<string?> ClosePositions(IEnumerable<Position> positionsAvailableData)
         {
-            Position? position = null;
-            var positionsAvailableData =
-               await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
-            var positionsToBeAnalyzed = positionsAvailableData.Data
+            var positionsToBeAnalyzed = positionsAvailableData
                .Where(x =>
                    x != null &&
                    x.Quantity != 0).ToList();
-
-            if (btcMode == CommonOrderSide.Buy)
-            {
-                position = positionsToBeAnalyzed.Where(x => x.Quantity < 0 && x.UnrealizedPnl > 0.03M).MaxBy(x => x.UnrealizedPnl);
-            }
-            if (btcMode == CommonOrderSide.Sell)
-            {
-                position = positionsToBeAnalyzed.Where(x => x.Quantity > 0 && x.UnrealizedPnl > 0.03M).MaxBy(x => x.UnrealizedPnl);
-            }
-            position ??= positionsToBeAnalyzed.Where(x => x.Quantity != 0 && x.UnrealizedPnl > 0.03M).MaxBy(x=>x.UnrealizedPnl);
-
+            
+            var position = positionsToBeAnalyzed.Where(x => x.Quantity != 0 && x.UnrealizedPnl > 0.1M).MaxBy(x => x.UnrealizedPnl);
             switch (position?.Quantity)
             {
                 case > 0:
