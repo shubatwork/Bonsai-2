@@ -22,50 +22,56 @@ namespace Bonsai.Services
 
         public async Task<string?> CreatePositions(List<string> notToBeTakenPosition)
         {
+            //var positionsAvailableData =
+            //   await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
+            //var accountInfo = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
+            //var balance = accountInfo.Data.TotalMaintMargin / accountInfo.Data.TotalMarginBalance;
+            //var closedPositionSymbol = await ClosePositions(positionsAvailableData.Data).ConfigureAwait(false);
+            //if (!string.IsNullOrEmpty(closedPositionSymbol) && balance < 0.25M)
+            //{
+            //    positionsAvailableData =
+            //     await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
+            //    var increasePosition = positionsAvailableData.Data.Where(x => x.UnrealizedPnl > -0.03M && x.UnrealizedPnl < 0M).MaxBy(x => x.UnrealizedPnl);
+            //    if (increasePosition != null)
+            //    {
+            //        var symbolData = new SymbolData
+            //        {
+            //            CurrentPrice = increasePosition!.MarkPrice!.Value,
+            //            Symbol = increasePosition.Symbol,
+            //            Mode = increasePosition.Quantity > 0 ? CommonOrderSide.Buy : CommonOrderSide.Sell
+            //        };
+            //        await CreatePosition(symbolData, 100).ConfigureAwait(false);
+            //        return closedPositionSymbol;
+            //    }
+            //}
+
+            //CommonOrderSide? btcSide = null;
+            //var final = new List<FinalResult>();
+
+            //if (positionsAvailableData.Data.Any(x => x.Quantity !=0 && x.UnrealizedPnl > -1M))
+            //{
+            //    return null;
+            //}
+            //var task1 = await _client.ExchangeData.GetKlinesAsync("btcusdt", KlineInterval.OneHour, null, null, 1).ConfigureAwait(false);
+            //var btc = task1.Data.FirstOrDefault();
+            //var btcCurrent = positionsAvailableData.Data.FirstOrDefault(x => x.Symbol.Equals("BTCUSDT"));
+            //if (btc!.OpenPrice < btcCurrent!.MarkPrice!.Value)
+            //{
+            //    btcSide = CommonOrderSide.Buy;
+            //}
+            //if (btc!.OpenPrice > btcCurrent!.MarkPrice!.Value)
+            //{
+            //    btcSide = CommonOrderSide.Sell;
+            //}
+
             var positionsAvailableData =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
-            var accountInfo = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
-            var balance = accountInfo.Data.TotalMaintMargin / accountInfo.Data.TotalMarginBalance;
-            var closedPositionSymbol = await ClosePositions(positionsAvailableData.Data).ConfigureAwait(false);
-            if (!string.IsNullOrEmpty(closedPositionSymbol) && balance < 0.25M)
-            {
-                positionsAvailableData =
-                 await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
-                var increasePosition = positionsAvailableData.Data.Where(x => x.UnrealizedPnl > 0.03M && x.UnrealizedPnl < 0.06M).MaxBy(x => x.UnrealizedPnl);
-                if (increasePosition != null)
-                {
-                    var symbolData = new SymbolData
-                    {
-                        CurrentPrice = increasePosition!.MarkPrice!.Value,
-                        Symbol = increasePosition.Symbol,
-                        Mode = increasePosition.Quantity > 0 ? CommonOrderSide.Buy : CommonOrderSide.Sell
-                    };
-                    await CreatePosition(symbolData, 10).ConfigureAwait(false);
-                    return closedPositionSymbol;
-                }
-            }
-            
-            if (balance > 0.1M)
+
+            var usdcPosition = positionsAvailableData.Data.FirstOrDefault(x => x.Symbol.Equals("USDCUSDT"))?.Quantity;
+            if (usdcPosition == null || usdcPosition.Value == 0)
             {
                 return null;
             }
-
-            CommonOrderSide? btcSide = null;
-            var final = new List<FinalResult>();
-            positionsAvailableData =
-               await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
-            var task1 = await _client.ExchangeData.GetKlinesAsync("btcusdt", KlineInterval.OneHour, null, null, 1).ConfigureAwait(false);
-            var btc = task1.Data.FirstOrDefault();
-            var btcCurrent = positionsAvailableData.Data.FirstOrDefault(x => x.Symbol.Equals("BTCUSDT"));
-            if (btc!.OpenPrice < btcCurrent!.MarkPrice!.Value)
-            {
-                btcSide = CommonOrderSide.Buy;
-            }
-            if (btc!.OpenPrice > btcCurrent!.MarkPrice!.Value)
-            {
-                btcSide = CommonOrderSide.Sell;
-            }
-
             var positionsToBeAnalyzed = positionsAvailableData.Data
                 .Where(x =>
                     x != null &&
@@ -75,53 +81,66 @@ namespace Bonsai.Services
                     && !x.Symbol.ToLower().Contains("bts")
                     && !x.Symbol.ToLower().Contains("hnt")
                     && x.Symbol.ToLower().Contains("usdt")
+                    && !x.Symbol.ToLower().Contains("usdc")
                     && !x.Symbol.ToLower().Contains("btc")).ToList();
+            
+            foreach(var position in positionsToBeAnalyzed.Take(10))
+            {
+                await CreatePosition(new SymbolData
+                {
+                    Mode = usdcPosition!.Value > 0 ? CommonOrderSide.Buy : CommonOrderSide.Sell,
+                    CurrentPrice = position.MarkPrice!.Value,
+                    Symbol = position.Symbol,
+                }, 10).ConfigureAwait(false);
+            }
 
-            foreach (var position in positionsToBeAnalyzed)
-            {
-                var data = await _dataHistoryRepository.GetDataByInterval(position.Symbol, _client, Binance.Net.Enums.KlineInterval.FiveMinutes).ConfigureAwait(false);
-                var hourlyAdx = GetAdxValue(data);
-                if (hourlyAdx.IsTrending && hourlyAdx.AdxValue > 25)
-                {
-                    var hourlyMacd = GetMacdValue(data);
-                    if (hourlyMacd != null)
-                    {
-                        data.ComputeRsi();
-                        RsiResult dataAIndicator = (RsiResult)data.Indicators[Indicator.Rsi];
-                        var rsiValue = dataAIndicator.Real[dataAIndicator.NBElement - 1];
-                        if (hourlyMacd?.OrderSide == CommonOrderSide.Buy && rsiValue < 80)
-                        {
-                            final.Add(new FinalResult
-                            {
-                                AdxValue = hourlyAdx.AdxValue,
-                                Position = position,
-                                OrderSide = CommonOrderSide.Buy
-                            });
-                        }
-                        if (hourlyMacd?.OrderSide == CommonOrderSide.Sell && rsiValue > 20)
-                        {
-                            final.Add(new FinalResult
-                            {
-                                AdxValue = hourlyAdx.AdxValue,
-                                Position = position,
-                                OrderSide = CommonOrderSide.Sell
-                            });
-                        }
-                    }
-                }
-            }
-            var finalPosition = final.Where(x => x.OrderSide == btcSide).MaxBy(x => x.AdxValue);
-            if (finalPosition != null)
-            {
-                var symbolData = new SymbolData
-                {
-                    CurrentPrice = finalPosition.Position!.MarkPrice!.Value,
-                    Symbol = finalPosition.Position.Symbol,
-                    Mode = finalPosition.OrderSide
-                };
-                await CreatePosition(symbolData, 15).ConfigureAwait(false);
-            }
-            return closedPositionSymbol;
+            //await ClosePositions(positionsAvailableData.Data).ConfigureAwait(false);
+
+            //foreach (var position in positionsToBeAnalyzed)
+            //{
+            //    var data = await _dataHistoryRepository.GetDataByInterval(position.Symbol, _client, Binance.Net.Enums.KlineInterval.OneHour).ConfigureAwait(false);
+            //    var hourlyAdx = GetAdxValue(data);
+            //    if (hourlyAdx.IsTrending && hourlyAdx.AdxValue > 25)
+            //    {
+            //        var hourlyMacd = GetMacdValue(data);
+            //        if (hourlyMacd != null)
+            //        {
+            //            data.ComputeRsi();
+            //            RsiResult dataAIndicator = (RsiResult)data.Indicators[Indicator.Rsi];
+            //            var rsiValue = dataAIndicator.Real[dataAIndicator.NBElement - 1];
+            //            if (hourlyMacd?.OrderSide == CommonOrderSide.Buy && rsiValue < 80)
+            //            {
+            //                final.Add(new FinalResult
+            //                {
+            //                    AdxValue = hourlyAdx.AdxValue,
+            //                    Position = position,
+            //                    OrderSide = CommonOrderSide.Buy
+            //                });
+            //            }
+            //            if (hourlyMacd?.OrderSide == CommonOrderSide.Sell && rsiValue > 20)
+            //            {
+            //                final.Add(new FinalResult
+            //                {
+            //                    AdxValue = hourlyAdx.AdxValue,
+            //                    Position = position,
+            //                    OrderSide = CommonOrderSide.Sell
+            //                });
+            //            }
+            //        }
+            //    }
+            //}
+            //var finalPosition = final.Where(x => x.OrderSide == btcSide).MaxBy(x => x.AdxValue);
+            //if (finalPosition != null)
+            //{
+            //    var symbolData = new SymbolData
+            //    {
+            //        CurrentPrice = finalPosition.Position!.MarkPrice!.Value,
+            //        Symbol = finalPosition.Position.Symbol,
+            //        Mode = finalPosition.OrderSide
+            //    };
+            //    await CreatePosition(symbolData, 100).ConfigureAwait(false);
+            //}
+            return null;
         }
 
         private static AdxFinalResult GetAdxValue(DataHistory data)
@@ -130,7 +149,7 @@ namespace Bonsai.Services
             AdxResult dataAIndicator = (AdxResult)data.Indicators[Indicator.Adx];
             var currentAdx = dataAIndicator.Real[dataAIndicator.NBElement - 1];
             var listOfAdx = new List<double>();
-            for (int i = dataAIndicator.NBElement - 3; i <= dataAIndicator.NBElement - 1; i++)
+            for (int i = dataAIndicator.NBElement - 2; i <= dataAIndicator.NBElement - 1; i++)
             {
                 listOfAdx.Add(dataAIndicator.Real[i]);
             }
@@ -144,19 +163,19 @@ namespace Bonsai.Services
             data.ComputeMacd();
             MacdResult dataAIndicator = (MacdResult)data.Indicators[Indicator.Macd];
             var listOfMacdValue = new List<double>();
-            for (int i = dataAIndicator.NBElement - 3; i <= dataAIndicator.NBElement - 1; i++)
+            for (int i = dataAIndicator.NBElement - 2; i <= dataAIndicator.NBElement - 1; i++)
             {
                 listOfMacdValue.Add(dataAIndicator.MacdValue[i]);
             }
             var isIncerasing = IsStrictlyIncreasing(listOfMacdValue);
             if (isIncerasing == true)
             {
-                return new MacdFinalResult { OrderSide = CommonOrderSide.Buy };
+                return new MacdFinalResult { OrderSide = CommonOrderSide.Sell };
             }
             var isDecreasing = IsStrictlyDecreasing(listOfMacdValue);
             if (isDecreasing == true)
             {
-                return new MacdFinalResult { OrderSide = CommonOrderSide.Sell };
+                return new MacdFinalResult { OrderSide = CommonOrderSide.Buy };
             }
             return null;
         }
@@ -205,28 +224,31 @@ namespace Bonsai.Services
                     position.Symbol, position.Mode!.Value, CommonOrderType.Market, quantity);
             }
 
-            Console.WriteLine(result.Error);
+            Console.WriteLine(result.Error + position.Symbol);
         }
 
         #endregion
 
         #region Close Position
-        public async Task<string?> ClosePositions(IEnumerable<Position> positionsAvailableData)
+        public async Task<string?> ClosePositions()
         {
-            var positionsToBeAnalyzed = positionsAvailableData
+            var positionsAvailableData =
+               await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
+            var positionsToBeAnalyzed = positionsAvailableData.Data
                .Where(x =>
                    x != null &&
                    x.Quantity != 0).ToList();
-            
-            var position = positionsToBeAnalyzed.Where(x => x.Quantity != 0 && x.UnrealizedPnl > 0.1M).MaxBy(x => x.UnrealizedPnl);
-            switch (position?.Quantity)
+            foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl > .05M && !x.Symbol.Equals("USDCUSDT")))
             {
-                case > 0:
-                    await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Quantity, true);
-                    return position.Symbol;
-                case < 0:
-                    await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Quantity, true);
-                    return position.Symbol;
+                switch (position?.Quantity)
+                {
+                    case > 0:
+                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Quantity, true);
+                        break;
+                    case < 0:
+                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Quantity, true);
+                        break;
+                }
             }
             return null;
         }

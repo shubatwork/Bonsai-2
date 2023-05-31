@@ -4,9 +4,9 @@ namespace Bonsai.Workers;
 
 public class ProfitWorkerService : BackgroundService
 {
-    private readonly IProfitService profit;
+    private readonly IDataAnalysisService profit;
 
-    public ProfitWorkerService(IProfitService profitService)
+    public ProfitWorkerService(IDataAnalysisService profitService)
     {
         profit = profitService;
     }
@@ -27,9 +27,7 @@ public class ProfitWorkerService : BackgroundService
 
     private async Task<bool> DoBackupAsync()
     {
-        Console.WriteLine("Started Execution For Creation");
-        await profit.ClosePositionsForProfit().ConfigureAwait(false);
-        Console.WriteLine("Ended Execution For Creation");
+        await profit.ClosePositions().ConfigureAwait(false);
         return true;
     }
 }
