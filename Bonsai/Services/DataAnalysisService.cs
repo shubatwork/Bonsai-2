@@ -75,7 +75,7 @@ namespace Bonsai.Services
             var positionsToBeAnalyzed = positionsAvailableData.Data
                 .Where(x =>
                     x != null &&
-                    x.Quantity == 0
+                    x.UnrealizedPnl > 0
                     && !notToBeTakenPosition.Contains(x.Symbol)
                     && x.MarkPrice > 0
                     && !x.Symbol.ToLower().Contains("bts")
@@ -83,14 +83,26 @@ namespace Bonsai.Services
                     && x.Symbol.ToLower().Contains("usdt")
                     && !x.Symbol.ToLower().Contains("usdc")
                     && !x.Symbol.ToLower().Contains("btc")).ToList();
-            
-            foreach(var position in positionsToBeAnalyzed.Take(10))
+
+            var adxList = new List<AdxFinalResult>();
+            foreach (var position in positionsToBeAnalyzed)
+            {
+                var data = await _dataHistoryRepository.GetDataByInterval(position.Symbol, _client, KlineInterval.FiveMinutes).ConfigureAwait(false);
+                var hourlyAdx = GetAdxValue(data);
+                if (hourlyAdx != null)
+                {
+                    hourlyAdx.Position = position;
+                    adxList.Add(hourlyAdx);
+                }
+            }
+
+            foreach (var adx in adxList.OrderByDescending(x => x.AdxValue).Take(1))
             {
                 await CreatePosition(new SymbolData
                 {
                     Mode = usdcPosition!.Value > 0 ? CommonOrderSide.Buy : CommonOrderSide.Sell,
-                    CurrentPrice = position.MarkPrice!.Value,
-                    Symbol = position.Symbol,
+                    CurrentPrice = adx.Position!.MarkPrice!.Value,
+                    Symbol = adx.Position.Symbol,
                 }, 10).ConfigureAwait(false);
             }
 
@@ -148,14 +160,7 @@ namespace Bonsai.Services
             data.ComputeAdx();
             AdxResult dataAIndicator = (AdxResult)data.Indicators[Indicator.Adx];
             var currentAdx = dataAIndicator.Real[dataAIndicator.NBElement - 1];
-            var listOfAdx = new List<double>();
-            for (int i = dataAIndicator.NBElement - 2; i <= dataAIndicator.NBElement - 1; i++)
-            {
-                listOfAdx.Add(dataAIndicator.Real[i]);
-            }
-            var isTrending = IsStrictlyIncreasing(listOfAdx);
-
-            return new AdxFinalResult { AdxValue = currentAdx, IsTrending = isTrending };
+            return new AdxFinalResult { AdxValue = currentAdx };
         }
 
         private static MacdFinalResult? GetMacdValue(DataHistory data)
@@ -238,7 +243,19 @@ namespace Bonsai.Services
                .Where(x =>
                    x != null &&
                    x.Quantity != 0).ToList();
-            foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl > .05M && !x.Symbol.Equals("USDCUSDT")))
+            foreach (var position in positionsToBeAnalyzed.Where(x => x.Quantity != 0 && x.UnrealizedPnl > 0.6M))
+            {
+                switch (position?.Quantity)
+                {
+                    case > 0:
+                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Quantity, true);
+                        break;
+                    case < 0:
+                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Quantity, true);
+                        break;
+                }
+            }
+            foreach (var position in positionsToBeAnalyzed.Where(x => x.Quantity != 0 && x.UnrealizedPnl < -1M))
             {
                 switch (position?.Quantity)
                 {
