@@ -1,21 +1,27 @@
 ﻿using Binance.Net.Enums;
 using Binance.Net.Interfaces.Clients.UsdFuturesApi;
+using TechnicalAnalysis.Business;
+using TechnicalAnalysis;
+using MakeMeRich.Binance.Services.Interfaces;
 
 namespace Bonsai.Services
 {
     public class StopLossService : IStopLossService
     {
         private readonly IBinanceClientUsdFuturesApi _client;
+        private readonly IDataHistoryRepository _dataHistoryRepository;
 
-        public StopLossService()
+        public StopLossService(IDataHistoryRepository dataHistoryRepository)
         {
             _client = ClientDetails.GetClient();
+            _dataHistoryRepository = dataHistoryRepository;
         }
 
         public async Task CreateOrdersForTrailingStopLoss()
         {
             var positionsToBeClosed =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
+
             var positions = positionsToBeClosed.Data.Where(x => x.Quantity == 0);
             foreach (var position in positions)
             {
@@ -24,18 +30,20 @@ namespace Bonsai.Services
 
             foreach (var position in positionsToBeClosed.Data.Where(x => x.Quantity != 0))
             {
-                var slValue = 1M;
+                var data = await _dataHistoryRepository.GetDataByInterval(position.Symbol, _client, KlineInterval.FiveMinutes).ConfigureAwait(false);
+                var ema = GetEmaValue(data);
+                var atr = GetAtrValue(data);
                 switch (position.Quantity)
                 {
                     case > 0:
                         {
-                            var spCost = (position.Quantity * position.MarkPrice - slValue) / position.Quantity;
+                            var spCost = (decimal)ema - (decimal)atr;
                             var getOrderDetails =
                                 await _client.Trading.GetOpenOrdersAsync(position.Symbol).ConfigureAwait(false);
                             var stopOrder = getOrderDetails.Data.FirstOrDefault(x => x.Type == FuturesOrderType.Stop);
                             if (stopOrder == null || stopOrder.Id == 0)
                             {
-                                await CreateOrdersLogic(spCost!.Value, position.Symbol, position.Quantity, FuturesOrderType.Stop,
+                                await CreateOrdersLogic(spCost, position.Symbol, position.Quantity, FuturesOrderType.Stop,
                                     OrderSide.Sell).ConfigureAwait(false);
                                 break;
                             }
@@ -43,7 +51,7 @@ namespace Bonsai.Services
                             if (stopOrder.StopPrice < spCost)
                             {
                                 await _client.Trading.CancelOrderAsync(position.Symbol, stopOrder.Id).ConfigureAwait(false);
-                                await CreateOrdersLogic(spCost.Value, position.Symbol, position.Quantity, FuturesOrderType.Stop,
+                                await CreateOrdersLogic(spCost, position.Symbol, position.Quantity, FuturesOrderType.Stop,
                                     OrderSide.Sell).ConfigureAwait(false);
                             }
 
@@ -51,13 +59,13 @@ namespace Bonsai.Services
                         }
                     case < 0:
                         {
-                            var spCost = (position.Quantity * position.MarkPrice - slValue) / position.Quantity;
+                            var spCost = (decimal)ema + (decimal)atr;
                             var getOrderDetails =
                                 await _client.Trading.GetOpenOrdersAsync(position.Symbol).ConfigureAwait(false);
                             var stopOrder = getOrderDetails.Data.FirstOrDefault(x => x.Type == FuturesOrderType.Stop);
                             if (stopOrder == null || stopOrder.Id == 0)
                             {
-                                await CreateOrdersLogic(spCost!.Value, position.Symbol, position.Quantity, FuturesOrderType.Stop,
+                                await CreateOrdersLogic(spCost, position.Symbol, position.Quantity, FuturesOrderType.Stop,
                                     OrderSide.Buy).ConfigureAwait(false);
                                 break;
                             }
@@ -65,13 +73,29 @@ namespace Bonsai.Services
                             if (stopOrder.StopPrice > spCost)
                             {
                                 await _client.Trading.CancelOrderAsync(position.Symbol, stopOrder.Id).ConfigureAwait(false);
-                                await CreateOrdersLogic(spCost.Value, position.Symbol, position.Quantity, FuturesOrderType.Stop,
+                                await CreateOrdersLogic(spCost, position.Symbol, position.Quantity, FuturesOrderType.Stop,
                                     OrderSide.Buy).ConfigureAwait(false);
                             }
                             break;
                         }
                 }
             }
+        }
+
+        private static double GetEmaValue(DataHistory data)
+        {
+            data.ComputeEma();
+            EmaResult dataAIndicator = (EmaResult)data.Indicators[Indicator.Ema];
+            var currentEma = dataAIndicator.Real[dataAIndicator.NBElement - 1];
+            return currentEma;
+        }
+
+        private static double GetAtrValue(DataHistory data)
+        {
+            data.ComputeAtr();
+            AtrResult dataAIndicator = (AtrResult)data.Indicators[Indicator.Atr];
+            var currentEma = dataAIndicator.Real[dataAIndicator.NBElement - 1];
+            return currentEma;
         }
 
         public async Task CancelOpenOrdersNotPresent()

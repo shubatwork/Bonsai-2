@@ -11,6 +11,8 @@ namespace Bonsai
     {
         public double AdxValue { get; set; }
         public Position? Position { get; set; }
+        public double RsiValue { get; set; }
+        public double EmaValue { get; set;}
     }
 
     public class FinalResult
