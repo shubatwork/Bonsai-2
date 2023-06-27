@@ -13,7 +13,7 @@ public class DataAnalysisWorkerService : BackgroundService
         _stopLossService = stopLossService;
     }
 
-    private const int GeneralDelay = 1000 * 10;
+    private const int GeneralDelay = 1000 * 60;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -38,7 +38,8 @@ public class DataAnalysisWorkerService : BackgroundService
 
     private async Task<string> DoBackupAsync(List<NotToTakePosition> positionsClosed)
     {
-        var closedPosition = await _dataAnalysisService.CreatePositions(positionsClosed.Select(x => x.Symbol).ToList()).ConfigureAwait(false);
-        return closedPosition;
+        var closedPosition = await _dataAnalysisService.ClosePositions().ConfigureAwait(false);
+        await _dataAnalysisService.CreatePositions().ConfigureAwait(false);
+        return null;
     }
 }
