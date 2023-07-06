@@ -129,7 +129,7 @@ namespace Bonsai.Services
                 .Where(x =>
                     x != null
                     && x.MarkPrice > 0
-                    && Math.Abs(x.Quantity * x.MarkPrice!.Value) < 9
+                    && x.Quantity == 0
                     && !x.Symbol.ToLower().Contains("bts")
                     && !x.Symbol.ToLower().Contains("hnt")
                     && x.Symbol.ToLower().Contains("usdt")
@@ -137,7 +137,7 @@ namespace Bonsai.Services
                     && !x.Symbol.ToLower().Contains("scusdt")
                     && !x.Symbol.ToLower().Contains("btc")).ToList();
             var balance =await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
-            if(balance.Data.TotalMaintMargin / balance.Data.TotalMarginBalance > 0.1M)
+            if(balance.Data.TotalMaintMargin / balance.Data.TotalMarginBalance > 0.15M)
             {
                 return null;
             }
@@ -170,7 +170,6 @@ namespace Bonsai.Services
                     CurrentPrice = positions!.MarkPrice!.Value,
                     Symbol = positions!.Symbol,
                 }, 6M).ConfigureAwait(false);
-                return null;
             }
             if (buyLoss < DateTime.UtcNow.Minute)
             {
@@ -181,7 +180,6 @@ namespace Bonsai.Services
                     CurrentPrice = positions!.MarkPrice!.Value,
                     Symbol = positions!.Symbol,
                 }, 6M).ConfigureAwait(false);
-                return null;
             }
             return null;
         }
