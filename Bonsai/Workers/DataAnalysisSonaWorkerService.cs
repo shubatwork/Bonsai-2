@@ -13,7 +13,7 @@ public class DataAnalysisSonaWorkerService : BackgroundService
         _stopLossService = stopLossService;
     }
 
-    private const int GeneralDelay = 1000 * 60;
+    private const int GeneralDelay = 1000 * 60 * 5;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
