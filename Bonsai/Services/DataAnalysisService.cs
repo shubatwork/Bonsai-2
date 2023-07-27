@@ -290,7 +290,7 @@ namespace Bonsai.Services
                 }
             }
 
-            if (positionsAvailableData.Data.Count(x=>x.Quantity != 0) < 100)
+            if (positionsAvailableData.Data.Count(x=>x.Quantity != 0) < 150)
             {
                 var adxList = new List<AdxFinalResult>();
                 foreach (var position in positionsToBeAnalyzed)

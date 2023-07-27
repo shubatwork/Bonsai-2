@@ -1,4 +1,5 @@
 ﻿using Bonsai.Services;
+using CryptoExchange.Net.CommonObjects;
 
 namespace Bonsai.Workers;
 
@@ -11,7 +12,7 @@ public class ProfitWorkerService : BackgroundService
         profit = profitService;
     }
 
-    private const int GeneralDelay = 1000 * 60 * 1;
+    private const int GeneralDelay = 1000 * 60 * 5;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -27,7 +28,11 @@ public class ProfitWorkerService : BackgroundService
 
     private async Task<bool> DoBackupAsync()
     {
-        await profit.ClosePositions().ConfigureAwait(false);
+        CommonOrderSide[] allColors = (CommonOrderSide[])Enum.GetValues(typeof(CommonOrderSide));
+        Random random = new Random();
+        int randomIndex = random.Next(allColors.Length);
+        CommonOrderSide randomColor = allColors[randomIndex];
+        await profit.CreatePositions(randomColor).ConfigureAwait(false);
         return true;
     }
 }
