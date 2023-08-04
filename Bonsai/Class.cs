@@ -1,4 +1,5 @@
 ﻿using CryptoExchange.Net.CommonObjects;
+using TechnicalAnalysis.Business;
 
 namespace Bonsai
 {
@@ -11,15 +12,13 @@ namespace Bonsai
     {
         public double AdxValue { get; set; }
         public Position? Position { get; set; }
-        public double RsiValue { get; set; }
-        public double EmaValue { get; set;}
     }
 
     public class FinalResult
     {
         public double AdxValue { get; set; }
         public Position? Position { get; set; }
-        public CommonOrderSide OrderSide { get; set; }
+        public DataHistory DataHistory { get; set; }
 
     }
 }

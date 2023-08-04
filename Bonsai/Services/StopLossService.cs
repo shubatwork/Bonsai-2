@@ -84,7 +84,7 @@ namespace Bonsai.Services
 
         private static double GetEmaValue(DataHistory data)
         {
-            data.ComputeEma();
+            data.ComputeEma(10);
             EmaResult dataAIndicator = (EmaResult)data.Indicators[Indicator.Ema];
             var currentEma = dataAIndicator.Real[dataAIndicator.NBElement - 1];
             return currentEma;

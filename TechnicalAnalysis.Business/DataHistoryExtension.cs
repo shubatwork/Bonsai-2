@@ -437,8 +437,9 @@ namespace TechnicalAnalysis.Business
 
         public static DataHistory ComputeEma(
             this DataHistory dataHistory,
+            int timePeriod,
             PriceDataPoint priceDataPoint = PriceDataPoint.Close) =>
-            dataHistory.ComputeIndicator(Indicator.Ema, priceDataPoint);
+            dataHistory.ComputeIndicator(Indicator.Ema, priceDataPoint, timePeriod);
 
         public static DataHistory ComputeExp(
             this DataHistory dataHistory,
@@ -800,9 +801,10 @@ namespace TechnicalAnalysis.Business
         public static DataHistory ComputeIndicator(
             this DataHistory dh,
             Indicator indicator,
-            PriceDataPoint priceDataPoint = PriceDataPoint.Close)
+            PriceDataPoint priceDataPoint = PriceDataPoint.Close,
+            int timePeriod = 30)
         {
-            return dh.ComputeIndicator(indicator, 0, dh.Average.Length - 1, priceDataPoint);
+            return dh.ComputeIndicator(indicator, 0, dh.Average.Length - 1, priceDataPoint, timePeriod);
         }
 
         public static DataHistory ComputeIndicator(
@@ -810,9 +812,10 @@ namespace TechnicalAnalysis.Business
             Indicator indicator,
             int startIdx,
             int endIdx,
-            PriceDataPoint priceDataPoint = PriceDataPoint.Close)
+            PriceDataPoint priceDataPoint = PriceDataPoint.Close,
+            int timePeriod = 30)
         {
-            var result = dh.ComputeIndicatorBase(indicator, priceDataPoint);
+            var result = dh.ComputeIndicatorBase(indicator, priceDataPoint, timePeriod);
             dh.Indicators.Add(indicator, result);
             return dh;
         }
@@ -822,9 +825,10 @@ namespace TechnicalAnalysis.Business
         private static IndicatorBase ComputeIndicatorBase(
             this DataHistory dh,
             Indicator indicator,
-            PriceDataPoint priceDataPoint = PriceDataPoint.Close)
+            PriceDataPoint priceDataPoint = PriceDataPoint.Close,
+            int timePeriod = 0)
         {
-            return dh.ComputeIndicatorBase(indicator, 0, dh.Average.Length - 1, priceDataPoint);
+            return dh.ComputeIndicatorBase(indicator, 0, dh.Average.Length - 1, priceDataPoint, timePeriod);
         }
 
         private static IndicatorBase ComputeIndicatorBase(
@@ -832,7 +836,8 @@ namespace TechnicalAnalysis.Business
             Indicator indicator,
             int startIdx,
             int endIdx,
-            PriceDataPoint priceDataPoint = PriceDataPoint.Close)
+            PriceDataPoint priceDataPoint = PriceDataPoint.Close,
+            int timePeriod = 30)
         {
             double[] real = dh.GetPriceData(priceDataPoint);
 
@@ -840,7 +845,6 @@ namespace TechnicalAnalysis.Business
             {
                 Indicator.Acos => TAMath.Acos(startIdx, endIdx, real),
                 Indicator.Ad => TAMath.Ad(startIdx, endIdx, dh.High, dh.Low, dh.Close, dh.Volume),
-                // Indicator.Add => TAMath.Add(startIdx, endIdx, dataHistory.Real0, dataHistory.Real1),
                 Indicator.AdOsc => TAMath.AdOsc(startIdx, endIdx, dh.High, dh.Low, dh.Close, dh.Volume),
                 Indicator.Adx => TAMath.Adx(startIdx, endIdx, dh.High, dh.Low, dh.Close),
                 Indicator.Adxr => TAMath.Adxr(startIdx, endIdx, dh.High, dh.Low, dh.Close),
@@ -852,7 +856,6 @@ namespace TechnicalAnalysis.Business
                 Indicator.Atr => TAMath.Atr(startIdx, endIdx, dh.High, dh.Low, dh.Close),
                 Indicator.AvgPrice => TAMath.AvgPrice(startIdx, endIdx, dh.Open, dh.High, dh.Low, dh.Close),
                 Indicator.BollingerBands => TAMath.BollingerBands(startIdx, endIdx, real),
-                // Indicator.Beta => TAMath.Beta(startIdx, endIdx, dataHistory.Real0, dataHistory.Real1),
                 Indicator.Bop => TAMath.Bop(startIdx, endIdx, dh.Open, dh.High, dh.Low, dh.Close),
                 Indicator.Cci => TAMath.Cci(startIdx, endIdx, dh.High, dh.Low, dh.Close),
                 Indicator.Cdl2Crows => TAMath.Cdl2Crows(startIdx, endIdx, dh.Open, dh.High, dh.Low, dh.Close),
@@ -918,13 +921,11 @@ namespace TechnicalAnalysis.Business
                 Indicator.CdlXSideGap3Methods => TAMath.CdlXSideGap3Methods(startIdx, endIdx, dh.Open, dh.High, dh.Low, dh.Close),
                 Indicator.Ceil => TAMath.Ceil(startIdx, endIdx, real),
                 Indicator.Cmo => TAMath.Cmo(startIdx, endIdx, real),
-                // Indicator.Correl => TAMath.Correl(startIdx, endIdx, dataHistory.Real0, dataHistory.Real1),
                 Indicator.Cos => TAMath.Cos(startIdx, endIdx, real),
                 Indicator.Cosh => TAMath.Cosh(startIdx, endIdx, real),
                 Indicator.Dema => TAMath.Dema(startIdx, endIdx, real),
-                // Indicator.Div => TAMath.Div(startIdx, endIdx, dataHistory.Real0, dataHistory.Real1),
                 Indicator.Dx => TAMath.Dx(startIdx, endIdx, dh.High, dh.Low, dh.Close),
-                Indicator.Ema => TAMath.Ema(startIdx, endIdx, real),
+                Indicator.Ema => TAMath.Ema(startIdx, endIdx, real, timePeriod),
                 Indicator.Exp => TAMath.Exp(startIdx, endIdx, real),
                 Indicator.Floor => TAMath.Floor(startIdx, endIdx, real),
                 Indicator.HtDcPeriod => TAMath.HtDcPeriod(startIdx, endIdx, real),
@@ -958,8 +959,6 @@ namespace TechnicalAnalysis.Business
                 Indicator.MinusDM => TAMath.MinusDM(startIdx, endIdx, dh.High, dh.Low),
                 Indicator.Mom => TAMath.Mom(startIdx, endIdx, real),
                 Indicator.MovingAverage => TAMath.MovingAverage(startIdx, endIdx, real),
-                // Indicator.MovingAverageVariablePeriod => TAMath.MovingAverageVariablePeriod(startIdx, endIdx, real, dataHistory.Periods),
-                // Indicator.Mult => TAMath.Mult(startIdx, endIdx, dataHistory.Real0, dataHistory.Real1),
                 Indicator.Natr => TAMath.Natr(startIdx, endIdx, dh.High, dh.Low, dh.Close),
                 Indicator.Obv => TAMath.Obv(startIdx, endIdx, real, dh.Volume),
                 Indicator.PlusDI => TAMath.PlusDI(startIdx, endIdx, dh.High, dh.Low, dh.Close),
@@ -980,7 +979,6 @@ namespace TechnicalAnalysis.Business
                 Indicator.Stoch => TAMath.Stoch(startIdx, endIdx, dh.High, dh.Low, dh.Close),
                 Indicator.StochF => TAMath.StochF(startIdx, endIdx, dh.High, dh.Low, dh.Close),
                 Indicator.StochRsi => TAMath.StochRsi(startIdx, endIdx, real),
-                // Indicator.Sub => TAMath.Sub(startIdx, endIdx, dataHistory.Real0, dataHistory.Real1),
                 Indicator.Sum => TAMath.Sum(startIdx, endIdx, real),
                 Indicator.T3 => TAMath.T3(startIdx, endIdx, real),
                 Indicator.Tan => TAMath.Tan(startIdx, endIdx, real),

@@ -6,6 +6,6 @@ namespace Bonsai.Services
     {
         Task<Position?> ClosePositions();
         Task<Position?> CloseSonaPositions();
-        Task<string?> CreatePositions(CommonOrderSide commonOrderSide);
+        Task<string?> CreatePositions(bool isFromClosePosition);
     }
 }

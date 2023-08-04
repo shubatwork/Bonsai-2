@@ -12,7 +12,7 @@ public class ProfitWorkerService : BackgroundService
         profit = profitService;
     }
 
-    private const int GeneralDelay = 1000 * 60 * 5;
+    private const int GeneralDelay = 1000 * 60;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -28,11 +28,7 @@ public class ProfitWorkerService : BackgroundService
 
     private async Task<bool> DoBackupAsync()
     {
-        CommonOrderSide[] allColors = (CommonOrderSide[])Enum.GetValues(typeof(CommonOrderSide));
-        Random random = new Random();
-        int randomIndex = random.Next(allColors.Length);
-        CommonOrderSide randomColor = allColors[randomIndex];
-        await profit.CreatePositions(randomColor).ConfigureAwait(false);
+        await profit.ClosePositions().ConfigureAwait(false);
         return true;
     }
 }
