@@ -36,7 +36,7 @@ public class DataAnalysisWorkerService : BackgroundService
 
     private async Task<string> DoBackupAsync(List<NotToTakePosition> positionsClosed)
     {
-        await _dataAnalysisService.CreatePositions(false).ConfigureAwait(false);
+        await _dataAnalysisService.CreatePositions().ConfigureAwait(false);
         return null;
     }
 }
