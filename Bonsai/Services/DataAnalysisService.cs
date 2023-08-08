@@ -27,34 +27,34 @@ namespace Bonsai.Services
             var positionsAvailableData =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
 
-            foreach (var ps in positionsAvailableData.Data)
-            {
-                if (ps.Quantity > 0)
-                {
-                    {
-                        await CreatePosition(new SymbolData
-                        {
-                            Mode = CommonOrderSide.Buy,
-                            CurrentPrice = ps!.MarkPrice!.Value,
-                            Symbol = ps!.Symbol,
-                        }, 6M).ConfigureAwait(false);
-                    }
-                    if (ps.Quantity < 0)
-                    {
-                        await CreatePosition(new SymbolData
-                        {
-                            Mode = CommonOrderSide.Sell,
-                            CurrentPrice = ps!.MarkPrice!.Value,
-                            Symbol = ps!.Symbol,
-                        }, 6M).ConfigureAwait(false);
-                    }
-                }
-            }
-
+            //foreach (var ps in positionsAvailableData.Data)
+            //{
+            //    if (ps.Quantity > 0)
+            //    {
+            //        {
+            //            await CreatePosition(new SymbolData
+            //            {
+            //                Mode = CommonOrderSide.Buy,
+            //                CurrentPrice = ps!.MarkPrice!.Value,
+            //                Symbol = ps!.Symbol,
+            //            }, 6M).ConfigureAwait(false);
+            //        }
+            //        if (ps.Quantity < 0)
+            //        {
+            //            await CreatePosition(new SymbolData
+            //            {
+            //                Mode = CommonOrderSide.Sell,
+            //                CurrentPrice = ps!.MarkPrice!.Value,
+            //                Symbol = ps!.Symbol,
+            //            }, 6M).ConfigureAwait(false);
+            //        }
+            //    }
+            //}
+           
             var balanceData = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
             var x = balanceData.Data.TotalMaintMargin / balanceData.Data.TotalMarginBalance;
 
-            if(x > .20M)
+            if(x > .25M)
             {
                 return null;
             }
@@ -94,7 +94,7 @@ namespace Bonsai.Services
                 var ema5 = GetEma(position.DataHistory, 5);
                 position.DataHistory.Indicators.Remove(Indicator.Ema);
                 var ema12 = GetEma(position.DataHistory, 12);
-                if (ema5 > ema12 && btcPrice > 29300)
+                if (ema5 > ema12 && btcPrice > 29300 && position!.Position!.Quantity >= 0)
                 {
                     await CreatePosition(new SymbolData
                     {
@@ -103,7 +103,7 @@ namespace Bonsai.Services
                         Symbol = position!.Position!.Symbol,
                     }, 6M).ConfigureAwait(false);
                 }
-                if (ema5 < ema12 && btcPrice < 28900)
+                if (ema5 < ema12 && btcPrice < 28900 && position!.Position!.Quantity <= 0)
                 {
                     await CreatePosition(new SymbolData
                     {
