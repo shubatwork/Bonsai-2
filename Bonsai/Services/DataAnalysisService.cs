@@ -33,13 +33,11 @@ namespace Bonsai.Services
             {
                 return null;
             }
-
+           
             var positionsToBeAnalyzed = positionsAvailableData.Data
                 .Where(x =>
                     x != null
                     && x.MarkPrice > 0
-                    && x.UnrealizedPnl >= -0.2M
-                    && x.Quantity != 0
                     && !x.Symbol.ToLower().Contains("bts")
                     && !x.Symbol.ToLower().Contains("hnt")
                     && x.Symbol.ToLower().Contains("usdt")
@@ -58,33 +56,33 @@ namespace Bonsai.Services
             }
 
             #region GetTrending
-            foreach (var position in adxList.OrderByDescending(x => x.Position!.UnrealizedPnl))
+            foreach (var position in adxList.OrderByDescending(x => x.AdxValue))
             {
                 var rsiValue = GetRsiValue(position.DataHistory);
-                var ema3 = GetEma(position.DataHistory, 3);
+                var ema3 = GetEma(position.DataHistory, 7);
                 position.DataHistory.Indicators.Remove(Indicator.Ema);
-                var ema6 = GetEma(position.DataHistory, 6);
+                var ema6 = GetEma(position.DataHistory, 25);
                 position.DataHistory.Indicators.Remove(Indicator.Ema);
-                var ema12 = GetEma(position.DataHistory, 12);
-                if (ema3 > ema6 && ema6 > ema12 && position!.Position!.Quantity >= 0)
+                var ema12 = GetEma(position.DataHistory, 99);
+                if (ema3 > ema6 && ema6 > ema12 && (double)position!.Position!.MarkPrice!.Value > ema3 && position!.Position!.Quantity >= 0)
                 {
-                    await CreatePosition(new SymbolData
-                    {
-                        Mode = CommonOrderSide.Buy,
-                        CurrentPrice = position!.Position!.MarkPrice!.Value,
-                        Symbol = position!.Position!.Symbol,
-                    }, 6M).ConfigureAwait(false);
-                }
-                if (ema3 < ema6 && ema6 < ema12 && position!.Position!.Quantity <= 0)
+                        await CreatePosition(new SymbolData
+                        {
+                            Mode = CommonOrderSide.Buy,
+                            CurrentPrice = position!.Position!.MarkPrice!.Value,
+                            Symbol = position!.Position!.Symbol,
+                        }, 6M).ConfigureAwait(false);
+                    }
+                if (ema3 < ema6 && ema6 < ema12 && (double)position!.Position!.MarkPrice!.Value < ema3 && position!.Position!.Quantity <= 0)
                 {
-                    await CreatePosition(new SymbolData
-                    {
-                        Mode = CommonOrderSide.Sell,
-                        CurrentPrice = position!.Position!.MarkPrice!.Value,
-                        Symbol = position!.Position!.Symbol,
-                    }, 6M).ConfigureAwait(false);
+                        await CreatePosition(new SymbolData
+                        {
+                            Mode = CommonOrderSide.Sell,
+                            CurrentPrice = position!.Position!.MarkPrice!.Value,
+                            Symbol = position!.Position!.Symbol,
+                        }, 6M).ConfigureAwait(false);
+                    }
                 }
-            }
 
             #endregion
             return null;
@@ -221,10 +219,11 @@ namespace Bonsai.Services
                    && !x.Symbol.ToLower().Contains("usdc")
                    && x.Quantity != 0).ToList();
 
-            foreach (var position in positionsToBeAnalyzed.Where(x=>x.UnrealizedPnl > .05M).OrderByDescending(x=>x.UnrealizedPnl))
+            foreach (var position in positionsToBeAnalyzed)
             {
+                var profit = Math.Abs(position.EntryPrice!.Value * position.Quantity * .004M);
 
-                if (position != null)
+                if (position != null && position.UnrealizedPnl > profit)
                 {
                     switch (position?.Quantity)
                     {
@@ -238,29 +237,6 @@ namespace Bonsai.Services
                 }
             }
             return null;
-        }
-
-        private async Task CreateLeastLoss(Position? position)
-        {
-            if (position?.Quantity > 0)
-            {
-                await CreatePosition(new SymbolData
-                {
-                    Mode = CommonOrderSide.Buy,
-                    CurrentPrice = position!.MarkPrice!.Value,
-                    Symbol = position!.Symbol,
-                }, 6M).ConfigureAwait(false);
-            }
-            if (position?.Quantity < 0)
-            {
-                await CreatePosition(new SymbolData
-                {
-                    Mode = CommonOrderSide.Sell,
-                    CurrentPrice = position!.MarkPrice!.Value,
-                    Symbol = position!.Symbol,
-                }, 6M).ConfigureAwait(false);
-            }
-
         }
 
         private async Task CreateOrdersLogic(string symbol, CommonOrderSide orderSide, decimal quantity, bool isGreaterThanMaxProfit)
