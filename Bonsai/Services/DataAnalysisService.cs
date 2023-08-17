@@ -66,7 +66,7 @@ namespace Bonsai.Services
                     {
                         continue;
                     }
-                    else if (position.Position!.Quantity < 0 && position.Position.UnrealizedPnl > 0.02M)
+                    else if (position.Position!.Quantity < 0 && (position.Position.UnrealizedPnl > 0.02M || position.Position.UnrealizedPnl < -0.1M))
                     {
                         await CreateOrdersLogic(position.Position.Symbol, CommonOrderSide.Buy, position.Position.Quantity, true);
                         continue;
@@ -88,7 +88,7 @@ namespace Bonsai.Services
                     {
                         continue;
                     }
-                    else if (position.Position!.Quantity > 0 && position.Position.UnrealizedPnl > 0.02M)
+                    else if (position.Position!.Quantity > 0 && (position.Position.UnrealizedPnl > 0.02M || position.Position.UnrealizedPnl < -0.1M))
                     {
                         await CreateOrdersLogic(position.Position.Symbol, CommonOrderSide.Sell, position.Position.Quantity, true);
                         continue;
