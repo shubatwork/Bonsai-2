@@ -24,26 +24,14 @@ namespace Bonsai.Services
 
         public async Task<string?> CreatePositions()
         {
+            //await ClosePositions().ConfigureAwait(false);
             var positionsAvailableData =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
-            var profitPos = positionsAvailableData.Data.Count(x => x.UnrealizedPnl > -0.05M && x.Quantity != 0);
-            if (profitPos > 60)
-            {
-                return null;
-            }
-
-            var balanceData = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
-            var x = balanceData.Data.TotalMaintMargin / balanceData.Data.TotalMarginBalance;
-            if (x > .1M)
-            {
-                return null;
-            }
 
             var positionsToBeAnalyzed = positionsAvailableData.Data
                 .Where(x =>
                     x != null
                     && x.MarkPrice > 0
-                    && Math.Abs(x.EntryPrice!.Value * x.Quantity) < 5
                     && !x.Symbol.ToLower().Contains("bts")
                     && !x.Symbol.ToLower().Contains("hnt")
                     && x.Symbol.ToLower().Contains("usdt")
@@ -52,39 +40,69 @@ namespace Bonsai.Services
                     && !x.Symbol.ToLower().Contains("sol")
                     && !x.Symbol.ToLower().Contains("bnb")
                     && !x.Symbol.ToLower().Contains("foot")
+                    && !x.Symbol.ToLower().Contains("ray")
                     && !x.Symbol.ToLower().Contains("btc")).ToList();
 
             var adxList = new List<FinalResult>();
             foreach (var pos in positionsToBeAnalyzed)
             {
-                var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.FiveMinutes).ConfigureAwait(false);
+                var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.OneMinute).ConfigureAwait(false);
                 var adxValue = GetAdxValue(data);
                 adxList.Add(new FinalResult { AdxValue = adxValue.AdxValue, Position = pos, DataHistory = data });
             }
 
+            var isPosCreated = false;
             #region GetTrending
-            foreach (var position in adxList.OrderByDescending(x => x.AdxValue).Take(2))
+            foreach (var position in adxList.OrderByDescending(x => x.AdxValue))
             {
-                var ema9 = GetEma(position.DataHistory, 3);
+                var ema3 = GetEma(position.DataHistory, 3);
                 position.DataHistory.Indicators.Remove(Indicator.Ema);
-                var ema21 = GetEma(position.DataHistory, 7);
-                if (ema9 > ema21 && position!.Position!.Quantity >= 0)
+                var ema7 = GetEma(position.DataHistory, 7);
+                position.DataHistory.Indicators.Remove(Indicator.Ema);
+                var ema15 = GetEma(position.DataHistory, 15);
+                if (ema3 > ema7)
                 {
-                    await CreatePosition(new SymbolData
+                    if (position.Position!.Quantity > 0)
                     {
-                        Mode = CommonOrderSide.Buy,
-                        CurrentPrice = position!.Position!.MarkPrice!.Value,
-                        Symbol = position!.Position!.Symbol,
-                    }, 6M).ConfigureAwait(false);
+                        continue;
+                    }
+                    else if (position.Position!.Quantity < 0 && position.Position.UnrealizedPnl > 0.02M)
+                    {
+                        await CreateOrdersLogic(position.Position.Symbol, CommonOrderSide.Buy, position.Position.Quantity, true);
+                        continue;
+                    }
+                    else if(position.Position!.Quantity == 0 && ema7 > ema15 && !isPosCreated)
+                    {
+                        await CreatePosition(new SymbolData
+                        {
+                            Mode = CommonOrderSide.Buy,
+                            CurrentPrice = position!.Position!.MarkPrice!.Value,
+                            Symbol = position!.Position!.Symbol,
+                        }, 6M).ConfigureAwait(false);
+                        isPosCreated = true;
+                    }
                 }
-                if (ema9 < ema21 && position!.Position!.Quantity <= 0)
+                if (ema3 < ema7)
                 {
-                    await CreatePosition(new SymbolData
+                    if (position.Position!.Quantity < 0)
                     {
-                        Mode = CommonOrderSide.Sell,
-                        CurrentPrice = position!.Position!.MarkPrice!.Value,
-                        Symbol = position!.Position!.Symbol,
-                    }, 6M).ConfigureAwait(false);
+                        continue;
+                    }
+                    else if (position.Position!.Quantity > 0 && position.Position.UnrealizedPnl > 0.02M)
+                    {
+                        await CreateOrdersLogic(position.Position.Symbol, CommonOrderSide.Sell, position.Position.Quantity, true);
+                        continue;
+                    }
+                    else if (position.Position!.Quantity == 0 && ema7 < ema15 && !isPosCreated)
+                    {
+                        await CreatePosition(new SymbolData
+                        {
+                            Mode = CommonOrderSide.Sell,
+                            CurrentPrice = position!.Position!.MarkPrice!.Value,
+                            Symbol = position!.Position!.Symbol,
+                        }, 6M).ConfigureAwait(false);
+                        isPosCreated = true;
+                    }
                 }
             }
 
@@ -225,7 +243,7 @@ namespace Bonsai.Services
 
             foreach (var position in positionsToBeAnalyzed)
             {
-                if (position != null && (position.UnrealizedPnl > 0.01M))
+                if (position.UnrealizedPnl > 0.02M || position!.UnrealizedPnl < -0.1M)
                 {
                     switch (position?.Quantity)
                     {
