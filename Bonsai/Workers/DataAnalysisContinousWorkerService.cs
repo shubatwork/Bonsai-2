@@ -2,16 +2,16 @@
 
 namespace Bonsai.Workers;
 
-public class DataAnalysisSonaWorkerService : BackgroundService
+public class DataAnalysisContinousWorkerService : BackgroundService
 {
     private readonly IDataAnalysisService _dataAnalysisService;
 
-    public DataAnalysisSonaWorkerService(IDataAnalysisService dataAnalysisService)
+    public DataAnalysisContinousWorkerService(IDataAnalysisService dataAnalysisService)
     {
         _dataAnalysisService = dataAnalysisService;
     }
 
-    private const int GeneralDelay = 1000 * 60 * 15;
+    private const int GeneralDelay = 1000 * 60 * 5;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -25,7 +25,7 @@ public class DataAnalysisSonaWorkerService : BackgroundService
 
     private async Task<string> DoBackupAsync(List<NotToTakePosition> positionsClosed)
     {
-        await _dataAnalysisService.UpdateLossPositions().ConfigureAwait(false);
+        await _dataAnalysisService.CreateContinousPositions().ConfigureAwait(false);
         return null;
     }
 }

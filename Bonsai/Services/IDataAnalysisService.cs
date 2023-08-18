@@ -7,5 +7,7 @@ namespace Bonsai.Services
         Task<Position?> ClosePositions();
         Task<Position?> CloseSonaPositions();
         Task<string?> CreatePositions();
+        Task<string?> UpdateLossPositions();
+        Task<string?> CreateContinousPositions();
     }
 }
