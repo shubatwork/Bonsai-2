@@ -51,8 +51,10 @@ namespace Bonsai.Services
                 adxList.Add(new FinalResult { AdxValue = adxValue.AdxValue, Position = pos, DataHistory = data });
             }
 
+            var psoCout = positionsAvailableData.Data.Count(x => x.Quantity != 0);
+
             #region GetTrending
-            foreach (var position in adxList.OrderByDescending(x => x.AdxValue))
+            foreach (var position in adxList.OrderByDescending(x => x.AdxValue).Take(100 - psoCout))
             {
                 var ema3 = GetEma(position.DataHistory, 2);
                 position.DataHistory.Indicators.Remove(Indicator.Ema);
