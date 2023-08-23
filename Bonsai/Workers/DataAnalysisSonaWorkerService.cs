@@ -15,17 +15,12 @@ public class DataAnalysisSonaWorkerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        List<NotToTakePosition> positionsClosed = new List<NotToTakePosition>();
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            string result = await DoBackupAsync(positionsClosed).ConfigureAwait(false);
-            await Task.Delay(GeneralDelay, stoppingToken);
-        }
+        await DoBackupAsync().ConfigureAwait(false);
+        await Task.Delay(GeneralDelay, stoppingToken);
     }
 
-    private async Task<string> DoBackupAsync(List<NotToTakePosition> positionsClosed)
+    private async Task DoBackupAsync()
     {
-        await _dataAnalysisService.CloseSonaPositions().ConfigureAwait(false);
-        return null;
+        await _dataAnalysisService.CreatePositionsAdx().ConfigureAwait(false);
     }
 }
