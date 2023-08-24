@@ -28,6 +28,11 @@ namespace Bonsai.Services
             var positionsAvailableData =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
 
+            if (positionsAvailableData.Data.Sum(x => x.UnrealizedPnl) < -5M && (klineInterval == KlineInterval.OneMinute || klineInterval == KlineInterval.ThreeMinutes || klineInterval == KlineInterval.FiveMinutes))
+            {
+                return null;
+            }
+
             var positionsToBeAnalyzed = positionsAvailableData.Data
                 .Where(x =>
                     x != null
@@ -56,6 +61,10 @@ namespace Bonsai.Services
 
             #region BuyRegion
             var buyRsiPositions = finalList.Where(x => x.RsiValue < 20 && x.Position!.Quantity >= 0);
+            if (klineInterval == KlineInterval.OneMinute || klineInterval == KlineInterval.ThreeMinutes || klineInterval == KlineInterval.FiveMinutes)
+            {
+                buyRsiPositions = finalList.Where(x => x.RsiValue < 20 && x.Position!.Quantity == 0);
+            }
             foreach (var buyRsiPosition in buyRsiPositions.OrderByDescending(x => x.RsiValue))
             {
                 if (buyRsiPosition != null)
@@ -71,6 +80,10 @@ namespace Bonsai.Services
             }
 
             var sellRsiPositions = finalList.Where(x => x.RsiValue > 80 && x.Position!.Quantity <= 0);
+            if (klineInterval == KlineInterval.OneMinute || klineInterval == KlineInterval.ThreeMinutes || klineInterval == KlineInterval.FiveMinutes)
+            {
+                sellRsiPositions = finalList.Where(x => x.RsiValue > 80 && x.Position!.Quantity == 0);
+            }
             foreach (var sellRsiPosition in sellRsiPositions.OrderByDescending(x => x.RsiValue))
             {
                 if (sellRsiPosition != null)
@@ -238,7 +251,7 @@ namespace Bonsai.Services
                 }
             }
 
-            
+
             return null;
         }
 

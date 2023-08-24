@@ -11,12 +11,13 @@ public class DataAnalysisWorkerService30 : BackgroundService
         _dataAnalysisService = dataAnalysisService;
     }
 
-    private const int GeneralDelay = 1000 * 60 * 30;
+    private const int GeneralDelay = 1000 * 60 * 35;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            Thread.Sleep(2234);
             await DoBackupAsync().ConfigureAwait(false);
             await Task.Delay(GeneralDelay, stoppingToken);
         }
