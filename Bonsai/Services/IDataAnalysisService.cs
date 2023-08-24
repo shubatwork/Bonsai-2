@@ -5,8 +5,6 @@ namespace Bonsai.Services
     public interface IDataAnalysisService
     {
         Task<Position?> ClosePositions();
-        Task<Position?> CloseSonaPositions();
         Task<string?> CreatePositions();
-        Task<string?> CreatePositionsAdx();
     }
 }
