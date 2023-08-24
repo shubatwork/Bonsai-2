@@ -2,11 +2,11 @@
 
 namespace Bonsai.Workers;
 
-public class DataAnalysisWorkerService : BackgroundService
+public class DataAnalysisWorkerService05 : BackgroundService
 {
     private readonly IDataAnalysisService _dataAnalysisService;
 
-    public DataAnalysisWorkerService(IDataAnalysisService dataAnalysisService)
+    public DataAnalysisWorkerService05(IDataAnalysisService dataAnalysisService)
     {
         _dataAnalysisService = dataAnalysisService;
     }
@@ -24,7 +24,7 @@ public class DataAnalysisWorkerService : BackgroundService
 
     private async Task<string?> DoBackupAsync()
     {
-        await _dataAnalysisService.CreatePositions().ConfigureAwait(false);
+        await _dataAnalysisService.CreatePositions(Binance.Net.Enums.KlineInterval.FiveMinutes).ConfigureAwait(false);
         return null;
     }
 }
