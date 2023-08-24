@@ -4,6 +4,7 @@ using TechnicalAnalysis.Business;
 using TechnicalAnalysis;
 using CryptoExchange.Net.CommonObjects;
 using Binance.Net.Enums;
+using CryptoExchange.Net;
 
 namespace Bonsai.Services
 {
@@ -223,7 +224,7 @@ namespace Bonsai.Services
 
             foreach (var position in positionsToBeAnalyzed)
             {
-                if (position.UnrealizedPnl > 1M)
+                if (position.UnrealizedPnl > .1M)
                 {
                     switch (position?.Quantity)
                     {
