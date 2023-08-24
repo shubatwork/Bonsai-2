@@ -55,25 +55,6 @@ namespace Bonsai.Services
                 }
             }
 
-
-            var buyRsiPositions3 = finalList.Where(x => x.RsiValue > 70 && x.Position.Quantity > 0 && x.Position!.UnrealizedPnl > 0);
-            foreach (var buyRsiPosition in buyRsiPositions3.OrderBy(x => x.AdxValue))
-            {
-                if (buyRsiPosition != null)
-                {
-                    await CreateOrdersLogic(buyRsiPosition.Position!.Symbol, CommonOrderSide.Sell, buyRsiPosition.Position!.Quantity, true);
-                }
-            }
-
-            var sellRsiPositions3 = finalList.Where(x => x.RsiValue < 30 && x.Position.Quantity < 0 && x.Position!.UnrealizedPnl > 0);
-            foreach (var sellRsiPosition in sellRsiPositions3.OrderBy(x => x.AdxValue))
-            {
-                if (sellRsiPosition != null)
-                {
-                    await CreateOrdersLogic(sellRsiPosition.Position!.Symbol, CommonOrderSide.Buy, sellRsiPosition.Position!.Quantity, true);
-                }
-            }
-
             #region BuyRegion
             var buyRsiPositions = finalList.Where(x => x.RsiValue < 25 && x.Position.Quantity == 0);
             foreach (var buyRsiPosition in buyRsiPositions.OrderBy(x => x.AdxValue))
@@ -102,47 +83,6 @@ namespace Bonsai.Services
                     }, 100M).ConfigureAwait(false);
                 }
             }
-
-            var buyRsiPositions2 = finalList.Where(x => x.RsiValue > 40
-            && x.RsiValue < 60
-            && x.Position.Quantity > 0
-            && Math.Abs(x.Position.Quantity * x.Position.EntryPrice.Value) < 9
-            && x.Position!.UnrealizedPnl > 0.02M);
-            foreach (var buyRsiPosition in buyRsiPositions2.OrderBy(x => x.AdxValue))
-            {
-                if (buyRsiPosition != null)
-                {
-                    await CreatePosition(new SymbolData
-                    {
-                        Mode = CommonOrderSide.Buy,
-                        CurrentPrice = buyRsiPosition!.Position!.MarkPrice!.Value,
-                        Symbol = buyRsiPosition!.Position!.Symbol,
-                    }, 100M).ConfigureAwait(false);
-                }
-            }
-
-            #endregion
-
-            #region SellRegion
-
-            var sellRsiPositions2 = finalList.Where(x => x.RsiValue > 40
-            && x.RsiValue < 60
-            && x.Position.Quantity < 0
-            && Math.Abs(x.Position.Quantity * x.Position.EntryPrice.Value) < 9
-            && x.Position!.UnrealizedPnl > 0.02M);
-            foreach (var sellRsiPosition in sellRsiPositions2.OrderBy(x => x.AdxValue))
-            {
-                if (sellRsiPosition != null)
-                {
-                    await CreatePosition(new SymbolData
-                    {
-                        Mode = CommonOrderSide.Sell,
-                        CurrentPrice = sellRsiPosition!.Position!.MarkPrice!.Value,
-                        Symbol = sellRsiPosition!.Position!.Symbol,
-                    }, 100M).ConfigureAwait(false);
-                }
-            }
-
             #endregion
 
             return null;
