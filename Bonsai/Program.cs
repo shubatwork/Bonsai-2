@@ -20,11 +20,11 @@ namespace Bonsai
             builder.Services.AddTransient<IStopLossService, StopLossService>();
             builder.Services.AddHostedService<DataAnalysisWorkerService05>();
             builder.Services.AddHostedService<DataAnalysisWorkerService03>();
-            builder.Services.AddHostedService<DataAnalysisWorkerService15>();
-            builder.Services.AddHostedService<DataAnalysisWorkerService30>();
+            //builder.Services.AddHostedService<DataAnalysisWorkerService15>();
+            //builder.Services.AddHostedService<DataAnalysisWorkerService30>();
             builder.Services.AddHostedService<DataAnalysisWorkerService60>();
             builder.Services.AddHostedService<DataAnalysisWorkerService1Day>();
-            builder.Services.AddHostedService<DataAnalysisWorkerService01>();
+            //builder.Services.AddHostedService<DataAnalysisWorkerService01>();
 
             builder.Services.AddHostedService<ProfitWorkerService>();
            // builder.Services.AddHostedService<DataAnalysisSonaWorkerService>();

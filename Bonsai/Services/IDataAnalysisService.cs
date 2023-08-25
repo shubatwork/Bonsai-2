@@ -7,5 +7,6 @@ namespace Bonsai.Services
     {
         Task<Position?> ClosePositions();
         Task<string?> CreatePositions(KlineInterval klineInterval);
+        Task<string?> CreatePositionsRSI(KlineInterval klineInterval);
     }
 }

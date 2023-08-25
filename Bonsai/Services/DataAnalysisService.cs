@@ -28,7 +28,7 @@ namespace Bonsai.Services
             var positionsAvailableData =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
 
-            if (positionsAvailableData.Data.Sum(x => x.UnrealizedPnl) < -5M && (klineInterval == KlineInterval.OneMinute || klineInterval == KlineInterval.ThreeMinutes || klineInterval == KlineInterval.FiveMinutes))
+            if (positionsAvailableData.Data.Any(x => Math.Abs(x.Quantity * x!.EntryPrice!.Value) > 8 && x.UnrealizedPnl > -0.05M && x.Quantity != 0))
             {
                 return null;
             }
@@ -60,7 +60,7 @@ namespace Bonsai.Services
             }
 
             #region BuyRegion
-            var buyRsiPositions = finalList.Where(x => x.RsiValue < 20 && x.Position!.Quantity >= 0);
+            var buyRsiPositions = finalList.Where(x => x.RsiValue < 20 && x.Position!.Quantity == 0);
             if (klineInterval == KlineInterval.OneMinute || klineInterval == KlineInterval.ThreeMinutes || klineInterval == KlineInterval.FiveMinutes)
             {
                 buyRsiPositions = finalList.Where(x => x.RsiValue < 20 && x.Position!.Quantity == 0);
@@ -79,7 +79,7 @@ namespace Bonsai.Services
                 }
             }
 
-            var sellRsiPositions = finalList.Where(x => x.RsiValue > 80 && x.Position!.Quantity <= 0);
+            var sellRsiPositions = finalList.Where(x => x.RsiValue > 80 && x.Position!.Quantity == 0);
             if (klineInterval == KlineInterval.OneMinute || klineInterval == KlineInterval.ThreeMinutes || klineInterval == KlineInterval.FiveMinutes)
             {
                 sellRsiPositions = finalList.Where(x => x.RsiValue > 80 && x.Position!.Quantity == 0);
@@ -101,6 +101,70 @@ namespace Bonsai.Services
 
             return null;
         }
+
+        public async Task<string?> CreatePositionsRSI(KlineInterval klineInterval = KlineInterval.OneMinute)
+        {
+            var positionsAvailableData =
+               await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
+
+            if (positionsAvailableData.Data.Any(x=> Math.Abs(x.Quantity * x!.EntryPrice!.Value) < 8 && x.UnrealizedPnl > -0.03M && x.Quantity != 0))
+            {
+                return null;
+            }
+
+            var positionsToBeAnalyzed = positionsAvailableData.Data
+                .Where(x =>
+                    x != null
+                    && x.MarkPrice > 0
+                    && !x.Symbol.ToLower().Contains("bts")
+                    && !x.Symbol.ToLower().Contains("hnt")
+                    && x.Symbol.ToLower().Contains("usdt")
+                    && !x.Symbol.ToLower().Contains("usdc")
+                    && !x.Symbol.ToLower().Contains("scusdt")
+                    && !x.Symbol.ToLower().Contains("sol")
+                    && !x.Symbol.ToLower().Contains("bnb")
+                    && !x.Symbol.ToLower().Contains("foot")
+                    && !x.Symbol.ToLower().Contains("ray")
+                    && !x.Symbol.ToLower().Contains("btc")).ToList();
+
+            var finalList = new List<FinalResult>();
+            foreach (var pos in positionsToBeAnalyzed)
+            {
+                var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, klineInterval).ConfigureAwait(false);
+                if (data.Volume.Last() > 0)
+                {
+                    var rsiValue = GetRsiValue(data);
+                    finalList.Add(new FinalResult { RsiValue = rsiValue, Position = pos, DataHistory = data });
+                }
+            }
+
+            #region BuyRegion
+            var buyRsiPosition = finalList.Where(x => x.Position!.Quantity == 0).MinBy(x => x.RsiValue);
+            if (buyRsiPosition != null)
+            {
+                await CreatePosition(new SymbolData
+                {
+                    Mode = CommonOrderSide.Buy,
+                    CurrentPrice = buyRsiPosition!.Position!.MarkPrice!.Value,
+                    Symbol = buyRsiPosition!.Position!.Symbol,
+                }, 6M).ConfigureAwait(false);
+            }
+
+            var sellRsiPosition = finalList.Where(x => x.Position!.Quantity == 0).MaxBy(x => x.RsiValue);
+            if (sellRsiPosition != null)
+            {
+                await CreatePosition(new SymbolData
+                {
+                    Mode = CommonOrderSide.Sell,
+                    CurrentPrice = sellRsiPosition!.Position!.MarkPrice!.Value,
+                    Symbol = sellRsiPosition!.Position!.Symbol,
+                }, 6M).ConfigureAwait(false);
+            }
+            #endregion
+
+            return null;
+        }
+
 
         private double GetEma(DataHistory data, int timePeriod)
         {
@@ -237,7 +301,23 @@ namespace Bonsai.Services
 
             foreach (var position in positionsToBeAnalyzed)
             {
-                if (position.UnrealizedPnl > .1M)
+                if (position.UnrealizedPnl > .05M && Math.Abs(position.Quantity * position!.EntryPrice!.Value) > 8)
+                {
+                    switch (position?.Quantity)
+                    {
+                        case > 0:
+                            await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Quantity, true);
+                            break;
+                        case < 0:
+                            await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Quantity, true);
+                            break;
+                    }
+                }
+            }
+
+            foreach (var position in positionsToBeAnalyzed)
+            {
+                if (position.UnrealizedPnl > .02M && Math.Abs(position.Quantity * position!.EntryPrice!.Value) < 8)
                 {
                     switch (position?.Quantity)
                     {
