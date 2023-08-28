@@ -3,7 +3,7 @@ using TechnicalAnalysis.Business;
 
 namespace Bonsai
 {
-    public class MacdFinalResult
+    public class RsiFinalResult
     {
         public CommonOrderSide OrderSide { get; set; }
     }
@@ -18,8 +18,8 @@ namespace Bonsai
     {
         public double AdxValue { get; set; }
         public Position? Position { get; set; }
-        public DataHistory DataHistory { get; set; }
-        public double RsiValue { get; set; }
+        public DataHistory? DataHistory { get; set; }
+        public CommonOrderSide? OrderSide { get; set; }
     }
 }
 
