@@ -11,13 +11,12 @@ public class DataAnalysisWorkerService60 : BackgroundService
         _dataAnalysisService = dataAnalysisService;
     }
 
-    private const int GeneralDelay = 1000 * 60 * 5;
+    private const int GeneralDelay = 1000 * 60 * 1;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            Thread.Sleep(5234);
             await DoBackupAsync().ConfigureAwait(false);
             await Task.Delay(GeneralDelay, stoppingToken);
         }
@@ -25,7 +24,7 @@ public class DataAnalysisWorkerService60 : BackgroundService
 
     private async Task<string?> DoBackupAsync()
     {
-        await _dataAnalysisService.CreatePositionsRSI(Binance.Net.Enums.KlineInterval.OneHour).ConfigureAwait(false);
+        await _dataAnalysisService.CreatePositionsRSI(Binance.Net.Enums.KlineInterval.OneMinute).ConfigureAwait(false);
         return null;
     }
 }
