@@ -13,8 +13,8 @@ namespace Bonsai
             {
                 UsdFuturesApiOptions = new BinanceApiClientOptions()
                 {
-                    ApiCredentials = new BinanceApiCredentials("awOUMNsE8nLBBGfPYf2J4hV5z3DGJj81MMC9kDixNrO9fNTf2423c2K0ErqmpbeB",
-                        "m6Q8SoHrGmCOk72uMko3V32KDtgjvojjPLN4lwP1MC593kropSGUEhua957oB8id"),
+                    ApiCredentials = new BinanceApiCredentials("HszN5sV3lMWqcUkz07KX3HvZY4QJN4dEODfg7ztufILwo9lD5zPrvVzn99Nn7XHu",
+                        "k2mjskaZslg5vXuBmGSWxDXADWkahmd28wU1x7BVPZFjVPOfKuLMcbsGGxOuZI4B"),
                     AutoTimestamp = true
                 }
             }).UsdFuturesApi;
