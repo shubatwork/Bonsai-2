@@ -53,16 +53,17 @@ namespace Bonsai.Services
             foreach (var pos in positionsToBeAnalyzed)
             {
                 var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.OneHour).ConfigureAwait(false);
+                var task1 = await _client.ExchangeData.GetKlinesAsync(pos.Symbol, KlineInterval.OneHour, null, null, 1).ConfigureAwait(false);
+                var hourtrend = task1.Data.First().OpenPrice < pos.MarkPrice ? CommonOrderSide.Buy : CommonOrderSide.Sell;
                 if (data.Volume.Last() > 0 && data.Open.Count() > 30)
                 {
                     var adxValue = GetAdxValue(data);
                     if(adxValue > 30)
                     {
                         var rsiValue = GetRsiValue(data);
-                        if (rsiValue?.OrderSide != null)
+                        if (rsiValue?.OrderSide != null && rsiValue.OrderSide == hourtrend)
                         {
-                            hourlyResultList.Add(new DailyResult { OrderSide = rsiValue?.OrderSide, Symbol = pos.Symbol });
-
+                            hourlyResultList.Add(new DailyResult { OrderSide = rsiValue?.OrderSide, Symbol = pos.Symbol, MarkPrice = pos.MarkPrice });
                         }
                     }
                 }
@@ -78,8 +79,10 @@ namespace Bonsai.Services
                     var adxValue = GetAdxValue(data);
                     if (adxValue > 30)
                     {
+                        var task1 = await _client.ExchangeData.GetKlinesAsync(pos.Symbol, KlineInterval.FifteenMinutes, null, null, 1).ConfigureAwait(false);
+                        var trend = task1.Data.First().OpenPrice < pos.MarkPrice ? CommonOrderSide.Buy : CommonOrderSide.Sell;
                         var rsiValue = GetRsiValue(data);
-                        if (rsiValue?.OrderSide != null && rsiValue.OrderSide == pos.OrderSide)
+                        if (rsiValue?.OrderSide != null && rsiValue.OrderSide == pos.OrderSide && rsiValue.OrderSide == trend)
                         {
                             fifteenMinResultList.Add(new DailyResult { OrderSide = rsiValue?.OrderSide, Symbol = pos.Symbol });
 
@@ -102,7 +105,6 @@ namespace Bonsai.Services
                         if (rsiValue?.OrderSide != null && rsiValue.OrderSide == pos.OrderSide)
                         {
                             fiveMinResultList.Add(new DailyResult { OrderSide = rsiValue?.OrderSide, Symbol = pos.Symbol });
-
                         }
                     }
                 }
@@ -173,11 +175,11 @@ namespace Bonsai.Services
         {
             data.ComputeRsi();
             RsiResult dataAIndicator = (RsiResult)data.Indicators[Indicator.Rsi];
-            if (dataAIndicator.Real[dataAIndicator.NBElement - 1] > 40 && dataAIndicator.Real[dataAIndicator.NBElement - 1] < 80)
+            if ((dataAIndicator.Real[dataAIndicator.NBElement - 1] > 40 && dataAIndicator.Real[dataAIndicator.NBElement - 1] < 80) || dataAIndicator.Real[dataAIndicator.NBElement - 1] < 20)
             {
                 return new RsiFinalResult { OrderSide = CommonOrderSide.Buy };
             }
-            if (dataAIndicator.Real[dataAIndicator.NBElement - 1] < 60 && dataAIndicator.Real[dataAIndicator.NBElement - 1] > 20)
+            if ((dataAIndicator.Real[dataAIndicator.NBElement - 1] < 60 && dataAIndicator.Real[dataAIndicator.NBElement - 1] > 20) || dataAIndicator.Real[dataAIndicator.NBElement - 1] > 80)
             {
                 return new RsiFinalResult { OrderSide = CommonOrderSide.Sell };
             }

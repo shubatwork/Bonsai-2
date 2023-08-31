@@ -26,6 +26,7 @@ namespace Bonsai
     {
         public string Symbol { get; set; }
         public CommonOrderSide? OrderSide { get; set; }
+        public decimal? MarkPrice { get; set; }
     }
     public class AnalysisResult
     {
