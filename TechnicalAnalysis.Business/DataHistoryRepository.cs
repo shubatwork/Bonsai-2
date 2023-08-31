@@ -2,6 +2,7 @@
 using Binance.Net.Interfaces.Clients.UsdFuturesApi;
 using MakeMeRich.Binance.Services.Interfaces;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace TechnicalAnalysis.Business
@@ -10,7 +11,8 @@ namespace TechnicalAnalysis.Business
     {
         public async Task<DataHistory> GetDataByInterval(string symbol, IBinanceClientUsdFuturesApi _client, KlineInterval klineInterval = KlineInterval.FiveMinutes)
         {
-            var task1 = await _client.ExchangeData.GetKlinesAsync(symbol, klineInterval, null, null, 201).ConfigureAwait(false);
+            var task1 = await _client.ExchangeData.GetKlinesAsync(symbol, klineInterval, null, null, 100).ConfigureAwait(false);
+            
             var dataHistory = ParseJson(task1.Data);
             return dataHistory;
         }

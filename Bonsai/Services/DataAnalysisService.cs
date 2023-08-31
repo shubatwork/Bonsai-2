@@ -25,6 +25,14 @@ namespace Bonsai.Services
             var positionsAvailableData =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
 
+            var balance = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
+            var totalMarginBalance = balance.Data.TotalMarginBalance;
+            var totalMaintMargin = balance.Data.TotalMaintMargin;
+            if ((totalMaintMargin / totalMarginBalance) > 0.25M)
+            {
+                return null;
+            }
+
             var positionsToBeAnalyzed = positionsAvailableData.Data
                 .Where(x =>
                     x != null
@@ -38,53 +46,91 @@ namespace Bonsai.Services
                     && !x.Symbol.ToLower().Contains("bnb")
                     && !x.Symbol.ToLower().Contains("foot")
                     && !x.Symbol.ToLower().Contains("ray")
-                     && !x.Symbol.ToLower().Contains("xem")
+                    && !x.Symbol.ToLower().Contains("xem")
                     && !x.Symbol.ToLower().Contains("btc")).ToList();
 
-            var finalList = new List<FinalResult>();
+            var hourlyResultList = new List<DailyResult>();
             foreach (var pos in positionsToBeAnalyzed)
             {
-                var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, klineInterval).ConfigureAwait(false);
-                if (data.Volume.Last() > 0)
+                var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.OneHour).ConfigureAwait(false);
+                if (data.Volume.Last() > 0 && data.Open.Count() > 30)
                 {
-                    var rsiValue = GetRsiValue(data);
                     var adxValue = GetAdxValue(data);
-                    finalList.Add(new FinalResult { OrderSide = rsiValue?.OrderSide, Position = pos, DataHistory = data, AdxValue = adxValue });
+                    if(adxValue > 30)
+                    {
+                        var rsiValue = GetRsiValue(data);
+                        if (rsiValue?.OrderSide != null)
+                        {
+                            hourlyResultList.Add(new DailyResult { OrderSide = rsiValue?.OrderSide, Symbol = pos.Symbol });
+
+                        }
+                    }
                 }
             }
 
-            #region Order Region
-            var longProfit = positionsAvailableData.Data.Where(x => x.Quantity > 0).Sum(x => x.UnrealizedPnl);
-            var shortProfit = positionsAvailableData.Data.Where(x => x.Quantity < 0).Sum(x => x.UnrealizedPnl);
-            var orders = finalList.Where(x => x.OrderSide != null && x.AdxValue > 30).OrderByDescending(x => x.AdxValue);
-            var minAdx = finalList.Where(x => x.Position.Quantity != 0).MinBy(x => x.AdxValue);
-            foreach (var order in orders)
+            var fifteenMinResultList = new List<DailyResult>();
+
+            foreach (var pos in hourlyResultList)
+            {
+                var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.FifteenMinutes).ConfigureAwait(false);
+                if (data.Volume.Last() > 0 && data.Open.Count() > 30)
+                {
+                    var adxValue = GetAdxValue(data);
+                    if (adxValue > 30)
+                    {
+                        var rsiValue = GetRsiValue(data);
+                        if (rsiValue?.OrderSide != null && rsiValue.OrderSide == pos.OrderSide)
+                        {
+                            fifteenMinResultList.Add(new DailyResult { OrderSide = rsiValue?.OrderSide, Symbol = pos.Symbol });
+
+                        }
+                    }
+                }
+            }
+
+            var fiveMinResultList = new List<DailyResult>();
+
+            foreach (var pos in fifteenMinResultList)
+            {
+                var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.FiveMinutes).ConfigureAwait(false);
+                if (data.Volume.Last() > 0 && data.Open.Count() > 30)
+                {
+                    var adxValue = GetAdxValue(data);
+                    if (adxValue > 30)
+                    {
+                        var rsiValue = GetRsiValue(data);
+                        if (rsiValue?.OrderSide != null && rsiValue.OrderSide == pos.OrderSide)
+                        {
+                            fiveMinResultList.Add(new DailyResult { OrderSide = rsiValue?.OrderSide, Symbol = pos.Symbol });
+
+                        }
+                    }
+                }
+            }
+
+            var finalList = new List<FinalResult>();
+            if (fiveMinResultList.Any())
+            {
+                var pos = fiveMinResultList.First();
+                finalList.Add(new FinalResult
+                {
+                    OrderSide = pos.OrderSide,
+                    Position = positionsAvailableData.Data.First(x=> x.Symbol == pos.Symbol),
+                });
+            }
+            else
+            {
+                return null;
+            }
+            
+            foreach (var order in finalList)
             {
                 if (order != null)
                 {
-                    var hourData = await _client.ExchangeData.GetKlinesAsync(order!.Position!.Symbol, KlineInterval.OneHour, null, null, 1).ConfigureAwait(false);
-                    var fifteenMinData = await _client.ExchangeData.GetKlinesAsync(order!.Position!.Symbol, KlineInterval.FifteenMinutes, null, null, 1).ConfigureAwait(false);
-                    var hourtrend = hourData.Data.FirstOrDefault()?.OpenPrice < order!.Position!.MarkPrice!.Value ? CommonOrderSide.Buy : CommonOrderSide.Sell;
-                    var fifteenMintrend = fifteenMinData.Data.FirstOrDefault()?.OpenPrice < order!.Position!.MarkPrice!.Value ? CommonOrderSide.Buy : CommonOrderSide.Sell;
-
                     if (order?.Position?.Quantity == 0 
-                        && order.OrderSide == CommonOrderSide.Buy 
-                        && longProfit >= -2
-                        && hourtrend == CommonOrderSide.Buy
-                        && fifteenMintrend == CommonOrderSide.Buy)
+                        || (order!.Position!.UnrealizedPnl < -Math.Abs(order!.Position!.Quantity * order!.Position!.EntryPrice!.Value * 0.05M))
+                        && order.OrderSide == CommonOrderSide.Buy)
                     {
-                        if(minAdx!.AdxValue < order.AdxValue && minAdx!.Position!.UnrealizedPnl > 0.03M)
-                        {
-                            switch (minAdx?.Position.Quantity)
-                            {
-                                case > 0:
-                                    await CreateOrdersLogic(minAdx.Position.Symbol, CommonOrderSide.Sell, minAdx.Position.Quantity, true);
-                                    break;
-                                case < 0:
-                                    await CreateOrdersLogic(minAdx.Position.Symbol, CommonOrderSide.Buy, minAdx.Position.Quantity, true);
-                                    break;
-                            }
-                        }
                         await CreatePosition(new SymbolData
                         {
                             Mode = CommonOrderSide.Buy,
@@ -94,25 +140,11 @@ namespace Bonsai.Services
                         return null;
                     }
 
-                    if (order?.Position?.Quantity == 0
-                        && order.OrderSide == CommonOrderSide.Sell
-                        && shortProfit >= -2
-                        && hourtrend == CommonOrderSide.Sell
-                        && fifteenMintrend == CommonOrderSide.Sell
-                        )
+                    if (order?.Position?.Quantity == 0 
+                        || (order!.Position!.UnrealizedPnl > Math.Abs(order!.Position!.Quantity * order!.Position!.EntryPrice!.Value * 0.01M))
+                        || (order!.Position!.UnrealizedPnl < -Math.Abs(order!.Position!.Quantity * order!.Position!.EntryPrice!.Value * 0.03M))
+                        && order.OrderSide == CommonOrderSide.Sell)
                     {
-                        if (minAdx!.AdxValue < order.AdxValue && minAdx!.Position!.UnrealizedPnl > 0.03M)
-                        {
-                            switch (minAdx?.Position.Quantity)
-                            {
-                                case > 0:
-                                    await CreateOrdersLogic(minAdx.Position.Symbol, CommonOrderSide.Sell, minAdx.Position.Quantity, true);
-                                    break;
-                                case < 0:
-                                    await CreateOrdersLogic(minAdx.Position.Symbol, CommonOrderSide.Buy, minAdx.Position.Quantity, true);
-                                    break;
-                            }
-                        }
                         await CreatePosition(new SymbolData
                         {
                             Mode = CommonOrderSide.Sell,
@@ -141,11 +173,11 @@ namespace Bonsai.Services
         {
             data.ComputeRsi();
             RsiResult dataAIndicator = (RsiResult)data.Indicators[Indicator.Rsi];
-            if (dataAIndicator.Real[dataAIndicator.NBElement - 1] > 40 && dataAIndicator.Real[dataAIndicator.NBElement - 1] < 70)
+            if (dataAIndicator.Real[dataAIndicator.NBElement - 1] > 40 && dataAIndicator.Real[dataAIndicator.NBElement - 1] < 80)
             {
                 return new RsiFinalResult { OrderSide = CommonOrderSide.Buy };
             }
-            if (dataAIndicator.Real[dataAIndicator.NBElement - 1] < 60 && dataAIndicator.Real[dataAIndicator.NBElement - 1] > 30)
+            if (dataAIndicator.Real[dataAIndicator.NBElement - 1] < 60 && dataAIndicator.Real[dataAIndicator.NBElement - 1] > 20)
             {
                 return new RsiFinalResult { OrderSide = CommonOrderSide.Sell };
             }
@@ -199,7 +231,6 @@ namespace Bonsai.Services
             Console.WriteLine(result.Error + position.Symbol);
         }
 
-        #endregion
 
         #region Close Position
         public async Task<Position?> ClosePositions()
@@ -212,19 +243,39 @@ namespace Bonsai.Services
                    && !x.Symbol.ToLower().Contains("usdc")
                    && x.Quantity != 0).ToList();
 
-            var position = positionsToBeAnalyzed.Where(x => x.UnrealizedPnl > 0.05M).FirstOrDefault();
-            switch (position?.Quantity)
+            var positions = positionsToBeAnalyzed.Where(x => x.UnrealizedPnl > .1M);
+            foreach (var position in positions)
             {
-                case > 0:
-                    await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Quantity, true);
-                    break;
-                case < 0:
-                    await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Quantity, true);
-                    break;
+                switch (position?.Quantity)
+                {
+                    case > 0:
+                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Quantity, true);
+                        break;
+                    case < 0:
+                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Quantity, true);
+                        break;
+                }
+            }
+
+            var balance = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
+            var totalMarginBalance = balance.Data.TotalMarginBalance;
+            var totalMaintMargin = balance.Data.TotalMaintMargin;
+            if((totalMaintMargin / totalMarginBalance) > 0.3M) {
+                var position = positionsToBeAnalyzed.MaxBy(x=>x.UnrealizedPnl);
+                switch (position?.Quantity)
+                {
+                    case > 0:
+                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Quantity, true);
+                        break;
+                    case < 0:
+                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Quantity, true);
+                        break;
+                }
+
             }
             return null;
-        }
 
+        }
         private async Task CreateOrdersLogic(string symbol, CommonOrderSide orderSide, decimal quantity, bool isGreaterThanMaxProfit)
         {
             if (!isGreaterThanMaxProfit)

@@ -21,5 +21,18 @@ namespace Bonsai
         public DataHistory? DataHistory { get; set; }
         public CommonOrderSide? OrderSide { get; set; }
     }
+
+    public class DailyResult
+    {
+        public string Symbol { get; set; }
+        public CommonOrderSide? OrderSide { get; set; }
+    }
+    public class AnalysisResult
+    {
+        public List<DailyResult>? DailyResult{ get; set; }
+        public List<DailyResult>? HourlyResult { get; set; }
+        public List<DailyResult>? FiveMinResult { get; set; }
+
+    }
 }
 

@@ -24,7 +24,7 @@ public class DataAnalysisWorkerService60 : BackgroundService
 
     private async Task<string?> DoBackupAsync()
     {
-        await _dataAnalysisService.CreatePositionsRSI(Binance.Net.Enums.KlineInterval.FiveMinutes).ConfigureAwait(false);
+        await _dataAnalysisService.CreatePositionsRSI(Binance.Net.Enums.KlineInterval.OneHour).ConfigureAwait(false);
         return null;
     }
 }
