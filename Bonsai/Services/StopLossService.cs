@@ -8,7 +8,7 @@ namespace Bonsai.Services
 {
     public class StopLossService : IStopLossService
     {
-        private readonly IBinanceClientUsdFuturesApi _client;
+        private readonly IBinanceRestClientUsdFuturesApi _client;
         private readonly IDataHistoryRepository _dataHistoryRepository;
 
         public StopLossService(IDataHistoryRepository dataHistoryRepository)

@@ -1,6 +1,6 @@
 
 {
-    "region" : "us-east-1",
+    "region" : "ap-south-1",
     "configuration" : "Release",
     "framework"     : "net7.0",
     "self-contained" : true,
@@ -12,7 +12,7 @@
     "proxy-server"         : "nginx",
     "solution-stack"       : "64bit Amazon Linux 2 v2.5.6 running .NET Core",
     "environment-type"     : "SingleInstance",
-    "cname"                : "bonsai-dev",
+    "cname"                : "bonsai-dev56",
     "instance-type"        : "t3a.medium",
     "key-pair"             : "",
     "instance-profile"     : "aws-elasticbeanstalk-ec2-role",

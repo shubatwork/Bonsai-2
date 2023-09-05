@@ -1,37 +1,20 @@
 ﻿using Binance.Net.Clients;
 using Binance.Net.Interfaces.Clients.UsdFuturesApi;
 using Binance.Net.Objects;
+using Binance.Net.Objects.Options;
 using CryptoExchange.Net.Authentication;
 
 namespace Bonsai
 {
     public static class ClientDetails
     {
-        public static IBinanceClientUsdFuturesApi GetClient()
+        public static IBinanceRestClientUsdFuturesApi GetClient()
         {
-            return new BinanceClient(new BinanceClientOptions()
+            return new BinanceRestClient(options =>
             {
-                UsdFuturesApiOptions = new BinanceApiClientOptions()
-                {
-                    ApiCredentials = new BinanceApiCredentials("HszN5sV3lMWqcUkz07KX3HvZY4QJN4dEODfg7ztufILwo9lD5zPrvVzn99Nn7XHu",
-                        "k2mjskaZslg5vXuBmGSWxDXADWkahmd28wU1x7BVPZFjVPOfKuLMcbsGGxOuZI4B"),
-                    AutoTimestamp = true
-                }
+                options.ApiCredentials = new ApiCredentials("SubdJEhrO7AiXKUFhtFUAiCqiHCToV6QLf7VrH0HxK2iKBNbzPsWUJaxJRjYyyE5", "5yKPjUJq96QJNZ9HalocSOclvPkUbPVsx1LEJFqD0hH6UGBlbsTVnJXWLviANSmt");
+            options.AutoTimestamp= true;
             }).UsdFuturesApi;
-
-        }
-        public static IBinanceClientUsdFuturesApi GetSonaClient()
-        {
-            return new BinanceClient(new BinanceClientOptions()
-            {
-                UsdFuturesApiOptions = new BinanceApiClientOptions()
-                {
-                    ApiCredentials = new BinanceApiCredentials("8j650Bo6TnSAUDAKklbLqTN3n8qJWGeQMpKuVeqwSDhWCQ8H4I5ivm5gw6t8y4Yn",
-                        "M1xc7yscMah0WBQFJv6Snzu9pJFJaY2Vhkhm3x8k8NEReLHf0BPyJh855WSh2pQU"),
-                    AutoTimestamp = true
-                }
-            }).UsdFuturesApi;
-
         }
     }
 }

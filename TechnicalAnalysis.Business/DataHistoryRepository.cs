@@ -9,7 +9,7 @@ namespace TechnicalAnalysis.Business
 {
     public class DataHistoryRepository : IDataHistoryRepository
     {
-        public async Task<DataHistory> GetDataByInterval(string symbol, IBinanceClientUsdFuturesApi _client, KlineInterval klineInterval = KlineInterval.FiveMinutes)
+        public async Task<DataHistory> GetDataByInterval(string symbol, IBinanceRestClientUsdFuturesApi _client, KlineInterval klineInterval = KlineInterval.FiveMinutes)
         {
             var task1 = await _client.ExchangeData.GetKlinesAsync(symbol, klineInterval, null, null, 200).ConfigureAwait(false);
             

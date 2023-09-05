@@ -7,6 +7,6 @@ namespace MakeMeRich.Binance.Services.Interfaces
 {
     public interface IDataHistoryRepository
     {
-        Task<DataHistory> GetDataByInterval(string symbol, IBinanceClientUsdFuturesApi _client, KlineInterval klineInterval = KlineInterval.FiveMinutes);
+        Task<DataHistory> GetDataByInterval(string symbol, IBinanceRestClientUsdFuturesApi _client, KlineInterval klineInterval = KlineInterval.FiveMinutes);
     }
 }

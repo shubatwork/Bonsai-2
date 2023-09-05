@@ -15,6 +15,7 @@ public class DataAnalysisWorkerService60 : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        Thread.Sleep(2000);
         while (!stoppingToken.IsCancellationRequested)
         {
             await DoBackupAsync().ConfigureAwait(false);

@@ -1,0 +1,4 @@
+﻿[*.cs]
+
+# CA2014: Do not use stackalloc in loops
+dotnet_diagnostic.CA2014.severity = none

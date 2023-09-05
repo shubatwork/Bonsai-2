@@ -7,7 +7,7 @@ namespace Bonsai.Services
 {
     public class ProfitService : IProfitService
     {
-        private readonly IBinanceClientUsdFuturesApi _client;
+        private readonly IBinanceRestClientUsdFuturesApi _client;
 
         public ProfitService()
         {
