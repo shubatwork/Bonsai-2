@@ -100,8 +100,6 @@ namespace Bonsai.Services
                 return null;
             }
 
-
-
             var positionsToBeAnalyzed = positionsAvailableData.Data
                 .Where(x =>
                     x != null
