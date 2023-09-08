@@ -11,7 +11,7 @@ public class DataAnalysisWorkerService60 : BackgroundService
         _dataAnalysisService = dataAnalysisService;
     }
 
-    private const int GeneralDelay = 1000 * 40;
+    private const int GeneralDelay = 1000 * 60 * 15;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
