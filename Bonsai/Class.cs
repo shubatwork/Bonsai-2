@@ -21,6 +21,7 @@ namespace Bonsai
         public DataHistory? DataHistory { get; set; }
         public CommonOrderSide? OrderSide { get; set; }
         public decimal? OpenPrice { get; set; }
+        public double? RsiValue { get; set; }
     }
 
     public class DailyResult
@@ -29,6 +30,7 @@ namespace Bonsai
         public double AdxValue { get; set; }
         public CommonOrderSide? OrderSide { get; set; }
         public decimal? OpenPrice { get; set; }
+        public double? RsiValue { get; set; }
     }
     public class AnalysisResult
     {
