@@ -31,6 +31,7 @@ namespace Bonsai
         public CommonOrderSide? OrderSide { get; set; }
         public decimal? OpenPrice { get; set; }
         public double? RsiValue { get; set; }
+        public Position? Position { get; set; }
     }
     public class AnalysisResult
     {
