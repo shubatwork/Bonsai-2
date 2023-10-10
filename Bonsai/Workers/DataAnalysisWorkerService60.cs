@@ -15,7 +15,6 @@ public class DataAnalysisWorkerService60 : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        Thread.Sleep(2000);
         while (!stoppingToken.IsCancellationRequested)
         {
             await DoBackupAsync().ConfigureAwait(false);
@@ -25,7 +24,7 @@ public class DataAnalysisWorkerService60 : BackgroundService
 
     private async Task<string?> DoBackupAsync()
     {
-        await _dataAnalysisService.CreatePositionsRSI(Binance.Net.Enums.KlineInterval.OneHour).ConfigureAwait(false);
+        await _dataAnalysisService.CreatePositionsRSI(Binance.Net.Enums.KlineInterval.OneHour, true).ConfigureAwait(false);
         return null;
     }
 }
