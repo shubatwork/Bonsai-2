@@ -6,7 +6,6 @@ namespace Bonsai.Services
     public interface IDataAnalysisService
     {
         Task<Position?> ClosePositions();
-        Task<string?> CreatePositionsRSI(KlineInterval klineInterval, bool check);
-        Task<string?> UpdatePositions();
+        Task<string?> CreatePositions();
     }
 }
