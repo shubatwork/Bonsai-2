@@ -2,16 +2,16 @@
 
 namespace Bonsai.Workers;
 
-public class DataAnalysisWorkerService60 : BackgroundService
+public class DataAnalysisWorkerService : BackgroundService
 {
     private readonly IDataAnalysisService _dataAnalysisService;
 
-    public DataAnalysisWorkerService60(IDataAnalysisService dataAnalysisService)
+    public DataAnalysisWorkerService(IDataAnalysisService dataAnalysisService)
     {
         _dataAnalysisService = dataAnalysisService;
     }
 
-    private const int GeneralDelay = 1000 * 60;
+    private const int GeneralDelay = 1000 * 60 * 2;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

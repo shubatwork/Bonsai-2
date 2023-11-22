@@ -26,10 +26,7 @@ namespace Bonsai
 
     public class DailyResult
     {
-        public string Symbol { get; set; }
         public double AdxValue { get; set; }
-        public CommonOrderSide? OrderSide { get; set; }
-        public decimal? OpenPrice { get; set; }
         public double? RsiValue { get; set; }
         public Position? Position { get; set; }
     }
