@@ -51,7 +51,7 @@ namespace Bonsai.Services
 
             foreach (var pos in positionsToBeAnalyzed)
             {
-                var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.OneMinute).ConfigureAwait(false);
+                var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.ThreeMinutes).ConfigureAwait(false);
                 if (data.Count > 31)
                 {
                     var x = new DailyResult
@@ -239,7 +239,7 @@ namespace Bonsai.Services
 
             foreach (var pos in positionsToBeAnalyzed)
             {
-                var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.OneMinute).ConfigureAwait(false);
+                var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.ThreeMinutes).ConfigureAwait(false);
                 if (data.Count > 31)
                 {
                     var x = new DailyResult
@@ -256,17 +256,17 @@ namespace Bonsai.Services
             {
                 if (position?.Position!.Quantity > 0)
                 {
-                    if (position.RsiValue > 80 || position.RsiValue < 50)
+                    if (position.RsiValue > 80 || position.RsiValue < 50 || position!.Position!.UnrealizedPnl > 1M)
                     {
-                        await CreateOrdersLogic(position.Position.Symbol, CommonOrderSide.Sell, position!.Position!.Quantity, true).ConfigureAwait(false);
+                        await CreateOrdersLogic(position!.Position!.Symbol, CommonOrderSide.Sell, position!.Position!.Quantity, true).ConfigureAwait(false);
                     }
 
                 }
                 if (position?.Position!.Quantity < 0)
                 {
-                    if (position.RsiValue < 20 || position.RsiValue > 50)
+                    if (position.RsiValue < 20 || position.RsiValue > 50 || position!.Position!.UnrealizedPnl > 1M)
                     {
-                        await CreateOrdersLogic(position.Position.Symbol, CommonOrderSide.Buy, position!.Position!.Quantity, true).ConfigureAwait(false);
+                        await CreateOrdersLogic(position!.Position!.Symbol, CommonOrderSide.Buy, position!.Position!.Quantity, true).ConfigureAwait(false);
                     }
 
                 }
