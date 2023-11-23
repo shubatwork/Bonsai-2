@@ -3,16 +3,16 @@ using CryptoExchange.Net.CommonObjects;
 
 namespace Bonsai.Workers;
 
-public class ProfitWorkerService : BackgroundService
+public class LossWorkerService : BackgroundService
 {
     private readonly IDataAnalysisService profit;
 
-    public ProfitWorkerService(IDataAnalysisService profitService)
+    public LossWorkerService(IDataAnalysisService profitService)
     {
         profit = profitService;
     }
 
-    private const int GeneralDelay = 1000;
+    private const int GeneralDelay = 1000 * 60 * 10;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -28,7 +28,7 @@ public class ProfitWorkerService : BackgroundService
 
     private async Task<bool> DoBackupAsync()
     {
-        await profit.ClosePositions().ConfigureAwait(false);
+        await profit.CloseOldPositions().ConfigureAwait(false);
         return true;
     }
 }
