@@ -29,6 +29,7 @@ namespace Bonsai
         public double AdxValue { get; set; }
         public double? RsiValue { get; set; }
         public Position? Position { get; set; }
+        public CommonOrderSide? CommonOrderSide { get; set; }
     }
     public class AnalysisResult
     {

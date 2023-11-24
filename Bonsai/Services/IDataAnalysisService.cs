@@ -7,7 +7,6 @@ namespace Bonsai.Services
     {
         Task<Position?> ClosePositions();
         Task<string?> CreatePositions();
-        Task<string?> IncreasePositions();
         Task<Position?> CloseOldPositions();
     }
 }
