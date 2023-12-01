@@ -28,7 +28,7 @@ public class LossWorkerService : BackgroundService
 
     private async Task<bool> DoBackupAsync()
     {
-        await profit.CloseOldPositions().ConfigureAwait(false);
+        //await profit.CloseOldPositions().ConfigureAwait(false);
         return true;
     }
 }
