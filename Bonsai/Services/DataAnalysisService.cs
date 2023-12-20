@@ -45,12 +45,12 @@ namespace Bonsai.Services
             var hourlyResultList = new List<DailyResult>();
             foreach (var pos in positionsToBeAnalyzed)
             {
-                var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.OneHour).ConfigureAwait(false);
+                var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.FiveMinutes).ConfigureAwait(false);
                 if (data.Count > 31)
                 {
                     var x = new DailyResult
                     {
-                        RsiValue = GetRsiValue(data),
+                        AdxValue = GetAdxValue(data),
                         Position = pos,
                     };
 
@@ -58,7 +58,7 @@ namespace Bonsai.Services
                 }
             }
 
-            foreach (var positionByAdx in hourlyResultList.OrderByDescending(x => x.RsiValue))
+            foreach (var positionByAdx in hourlyResultList.OrderByDescending(x => x.AdxValue))
             {
                 var pos = positionByAdx?.Position;
                 var response = await CreatePosition(new SymbolData
@@ -75,6 +75,12 @@ namespace Bonsai.Services
                         CurrentPrice = pos!.MarkPrice!.Value,
                         Symbol = pos!.Symbol,
                     }, 10M, PositionSide.Short).ConfigureAwait(false);
+                    if(response)
+                    {
+                        return null;
+                    }
+                   
+                    return null;
                 }
             }
 
