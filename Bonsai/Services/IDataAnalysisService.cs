@@ -7,7 +7,6 @@ namespace Bonsai.Services
     {
         Task<Position?> ClosePositions();
         Task<string?> CreatePositionsBuy();
-        Task<string?> GetDataAdxValue();
         Task<string?> CreatePositionsSell();
     }
 }

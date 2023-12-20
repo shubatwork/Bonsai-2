@@ -24,7 +24,6 @@ public class DataAnalysisWorkerService : BackgroundService
 
     private async Task<string?> DoBackupAsync()
     {
-        await _dataAnalysisService.CreatePositionsSell().ConfigureAwait(false);
         await _dataAnalysisService.CreatePositionsBuy().ConfigureAwait(false);
         return null;
     }
