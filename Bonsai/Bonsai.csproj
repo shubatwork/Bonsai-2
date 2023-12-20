@@ -12,10 +12,15 @@
 
   <ItemGroup>
     <PackageReference Include="Binance.Net" Version="9.1.4" />
+    <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\TechnicalAnalysis.Business\TechnicalAnalysis.Business.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Logs\" />
   </ItemGroup>
 
 </Project>

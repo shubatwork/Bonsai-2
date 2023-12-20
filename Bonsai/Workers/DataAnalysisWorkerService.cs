@@ -11,7 +11,7 @@ public class DataAnalysisWorkerService : BackgroundService
         _dataAnalysisService = dataAnalysisService;
     }
 
-    private const int GeneralDelay = 1000 * 60 * 1;
+    private const int GeneralDelay = 1000;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -25,6 +25,7 @@ public class DataAnalysisWorkerService : BackgroundService
     private async Task<string?> DoBackupAsync()
     {
         await _dataAnalysisService.CreatePositionsSell().ConfigureAwait(false);
+        await _dataAnalysisService.CreatePositionsBuy().ConfigureAwait(false);
         return null;
     }
 }
