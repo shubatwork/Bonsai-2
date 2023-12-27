@@ -24,7 +24,6 @@ public class IncreasePositionWorkerService : BackgroundService
 
     private async Task<string?> DoBackupAsync()
     {
-        await _dataAnalysisService.IncreasePositions().ConfigureAwait(false);
         return null;
     }
 }
