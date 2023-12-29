@@ -6,8 +6,7 @@ namespace Bonsai.Services
     public interface IDataAnalysisService
     {
         Task<Position?> ClosePositions();
-        Task<string?> CreatePositionsBuy();
-        Task<string?> CreatePositionsSell();
+        Task<string?> CreatePositionsBuy(CommonOrderSide mode);
         Task<string?> IncreasePositions();
     }
 }

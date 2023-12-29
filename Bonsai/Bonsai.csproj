@@ -19,8 +19,4 @@
     <ProjectReference Include="..\TechnicalAnalysis.Business\TechnicalAnalysis.Business.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Logs\" />
-  </ItemGroup>
-
 </Project>
