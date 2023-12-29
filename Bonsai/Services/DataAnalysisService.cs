@@ -24,7 +24,7 @@ namespace Bonsai.Services
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
             var profit = positionsAvailableData.Data.Sum(x => x.UnrealizedPnl);
 
-            if(profit < -10M)
+            if (profit < -10M)
             {
                 return null;
             }
@@ -33,7 +33,6 @@ namespace Bonsai.Services
                 .Where(x =>
                     x != null
                     && x.MarkPrice > 0
-                    && x.Quantity == 0
                     && !x.Symbol.ToLower().Contains("bts")
                     && !x.Symbol.ToLower().Contains("hnt")
                     && x.Symbol.ToLower().Contains("usdt")
@@ -48,14 +47,14 @@ namespace Bonsai.Services
                     && !x.Symbol.ToLower().Contains("btc")).ToList();
 
             var hourlyResultList = new List<DailyResult>();
-            foreach (var pos in positionsToBeAnalyzed)
+            foreach (var pos in positionsToBeAnalyzed.DistinctBy(x => x.Symbol))
             {
-                var task2 = await _client.ExchangeData.GetKlinesAsync(pos.Symbol, KlineInterval.OneDay, null, null, 1).ConfigureAwait(false);
+                var task2 = await _client.ExchangeData.GetKlinesAsync(pos.Symbol, KlineInterval.OneHour, null, null, 1).ConfigureAwait(false);
                 var hourData = task2.Data.FirstOrDefault();
 
                 if (hourData!.OpenPrice < pos.MarkPrice)
                 {
-                    var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.OneHour).ConfigureAwait(false);
+                    var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.FiveMinutes).ConfigureAwait(false);
                     if (data.Count > 31)
                     {
                         var x = new DailyResult
@@ -70,7 +69,7 @@ namespace Bonsai.Services
                 }
                 if (hourData!.OpenPrice > pos.MarkPrice)
                 {
-                    var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.OneHour).ConfigureAwait(false);
+                    var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.FiveMinutes).ConfigureAwait(false);
                     if (data.Count > 31)
                     {
                         var x = new DailyResult
@@ -119,7 +118,7 @@ namespace Bonsai.Services
                 }
                 else
                 {
-                    if (mode == CommonOrderSide.Buy && positionByAdx!.CommonOrderSide == CommonOrderSide.Buy)
+                    if (mode == CommonOrderSide.Buy && positionByAdx!.CommonOrderSide == CommonOrderSide.Buy && !positionsAvailableData.Data.Any(x => x.Symbol == pos!.Symbol && x.Quantity == 0))
                     {
                         var response = await CreatePosition(new SymbolData
                         {
@@ -132,7 +131,7 @@ namespace Bonsai.Services
                             return null;
                         }
                     }
-                    else if(mode == CommonOrderSide.Sell && positionByAdx!.CommonOrderSide == CommonOrderSide.Sell)
+                    else if (mode == CommonOrderSide.Sell && positionByAdx!.CommonOrderSide == CommonOrderSide.Sell && !positionsAvailableData.Data.Any(x => x.Symbol == pos!.Symbol && x.Quantity == 0))
                     {
                         var response = await CreatePosition(new SymbolData
                         {
