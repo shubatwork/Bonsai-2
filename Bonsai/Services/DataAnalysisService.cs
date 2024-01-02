@@ -43,7 +43,7 @@ namespace Bonsai.Services
                     && !x.Symbol.ToLower().Contains("usdc")).ToList();
 
             var hourlyResultList = new List<DailyResult>();
-            foreach (var pos in positionsToBeAnalyzed)
+            foreach (var pos in positionsToBeAnalyzed.DistinctBy(x=>x.Symbol))
             {
                 var data = await _dataHistoryRepository.GetDataByInterval(pos.Symbol, _client, KlineInterval.FiveMinutes).ConfigureAwait(false);
                 if (data.Count > 31)
@@ -62,7 +62,7 @@ namespace Bonsai.Services
             {
                 var pos = positionByAdx?.Position;
 
-                if (positionsToBeAnalyzed.Any(x => x.Symbol == pos!.Symbol && pos.Quantity != 0))
+                if (positionsToBeAnalyzed.Any(x => x.Symbol == pos!.Symbol && x.Quantity != 0))
                 {
                     continue;
                 }
@@ -76,7 +76,7 @@ namespace Bonsai.Services
                     }, 10M, PositionSide.Long).ConfigureAwait(false);
                     if (response)
                     {
-                        return null;
+                        break;
                     }
                 }
             }
@@ -85,7 +85,7 @@ namespace Bonsai.Services
             {
                 var pos = positionByAdx?.Position;
 
-                if (positionsToBeAnalyzed.Any(x => x.Symbol == pos!.Symbol && pos.Quantity != 0))
+                if (positionsToBeAnalyzed.Any(x => x.Symbol == pos!.Symbol && x.Quantity != 0))
                 {
                     continue;
                 }
@@ -99,7 +99,7 @@ namespace Bonsai.Services
                     }, 10M, PositionSide.Short).ConfigureAwait(false);
                     if (response)
                     {
-                        return null;
+                        break;
                     };
                 }
             }
