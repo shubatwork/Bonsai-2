@@ -23,7 +23,7 @@ namespace Bonsai.Services
             var positionsAvailableData =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
 
-            if(positionsAvailableData.Data.Any(x=>x.Quantity != 0))
+            if (positionsAvailableData.Data.Any(x => x.Quantity != 0))
             {
                 return null;
             }
@@ -129,7 +129,7 @@ namespace Bonsai.Services
 
             foreach (var positionByAdx in positionsToBeAnalyzed.OrderBy(x => x.UnrealizedPnl))
             {
-                if (positionsAvailableData.Data.Any(x => x.Symbol == positionByAdx!.Symbol && x.Quantity < 0 && x.UnrealizedPnl < -Math.Abs(x.Quantity * x.EntryPrice!.Value * 0.05M)))
+                if (positionsAvailableData.Data.Any(x => x.Symbol == positionByAdx!.Symbol && x.Quantity < 0 && x.UnrealizedPnl < -Math.Abs(x.Quantity * x.EntryPrice!.Value * 0.01M)))
                 {
                     var response = await CreatePosition(new SymbolData
                     {
@@ -137,8 +137,18 @@ namespace Bonsai.Services
                         CurrentPrice = positionByAdx!.MarkPrice!.Value,
                         Symbol = positionByAdx!.Symbol,
                     }, 6M, PositionSide.Short).ConfigureAwait(false);
+                    if (response)
+                    {
+                        await CreatePosition(new SymbolData
+                        {
+                            Mode = CommonOrderSide.Buy,
+                            CurrentPrice = positionByAdx!.MarkPrice!.Value,
+                            Symbol = positionByAdx!.Symbol,
+                        }, 6M, PositionSide.Long).ConfigureAwait(false);
+                    }
+                    return true;
                 }
-                if (positionsAvailableData.Data.Any(x => x.Symbol == positionByAdx!.Symbol && x.Quantity > 0 && x.UnrealizedPnl < -Math.Abs(x.Quantity * x.EntryPrice!.Value * 0.05M)))
+                if (positionsAvailableData.Data.Any(x => x.Symbol == positionByAdx!.Symbol && x.Quantity > 0 && x.UnrealizedPnl < -Math.Abs(x.Quantity * x.EntryPrice!.Value * 0.01M)))
                 {
                     var response = await CreatePosition(new SymbolData
                     {
@@ -146,26 +156,16 @@ namespace Bonsai.Services
                         CurrentPrice = positionByAdx!.MarkPrice!.Value,
                         Symbol = positionByAdx!.Symbol,
                     }, 6M, PositionSide.Long).ConfigureAwait(false);
-                }
-                if (positionsAvailableData.Data.Any(x => x.Symbol == positionByAdx!.Symbol && x.Quantity > 0 && x.UnrealizedPnl < -Math.Abs(x.Quantity * x.EntryPrice!.Value * 0.01M))
-                    && !positionsAvailableData.Data.Any(x => x.Symbol == positionByAdx!.Symbol && x.Quantity < 0))
-                {
-                    var response = await CreatePosition(new SymbolData
+                    if (response)
                     {
-                        Mode = CommonOrderSide.Sell,
-                        CurrentPrice = positionByAdx!.MarkPrice!.Value,
-                        Symbol = positionByAdx!.Symbol,
-                    }, 6M, PositionSide.Short).ConfigureAwait(false);
-                }
-                if (positionsAvailableData.Data.Any(x => x.Symbol == positionByAdx!.Symbol && x.Quantity < 0 && x.UnrealizedPnl < -Math.Abs(x.Quantity * x.EntryPrice!.Value * 0.01M))
-                    && !positionsAvailableData.Data.Any(x => x.Symbol == positionByAdx!.Symbol && x.Quantity > 0))
-                {
-                    var response = await CreatePosition(new SymbolData
-                    {
-                        Mode = CommonOrderSide.Buy,
-                        CurrentPrice = positionByAdx!.MarkPrice!.Value,
-                        Symbol = positionByAdx!.Symbol,
-                    }, 6M, PositionSide.Long).ConfigureAwait(false);
+                        response = await CreatePosition(new SymbolData
+                        {
+                            Mode = CommonOrderSide.Sell,
+                            CurrentPrice = positionByAdx!.MarkPrice!.Value,
+                            Symbol = positionByAdx!.Symbol,
+                        }, 6M, PositionSide.Short).ConfigureAwait(false);
+                    }
+                    return true;
                 }
             }
 
