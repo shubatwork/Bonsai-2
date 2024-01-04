@@ -26,6 +26,7 @@ namespace Bonsai
 
     public class DailyResult
     {
+        public decimal PercentChange { get; set; }
         public double AdxValue { get; set; }
         public double? RsiValue { get; set; }
         public Position? Position { get; set; }

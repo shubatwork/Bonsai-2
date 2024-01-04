@@ -29,6 +29,7 @@ public class ProfitWorkerService : BackgroundService
     private async Task<bool> DoBackupAsync()
     {
         await profit.ClosePositions().ConfigureAwait(false);
+        Thread.Sleep(1000 * 10);
         await profit.IncreasePositions().ConfigureAwait(false);
         return true;
     }
