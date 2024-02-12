@@ -30,14 +30,12 @@ namespace Bonsai.Services
 
             foreach (var position in positionsToBeClosed.Data.Where(x => x.Quantity != 0))
             {
-                var data = await _dataHistoryRepository.GetDataByInterval(position.Symbol, _client, KlineInterval.FiveMinutes).ConfigureAwait(false);
-                var ema = GetEmaValue(data);
-                var atr = GetAtrValue(data);
+               
                 switch (position.Quantity)
                 {
                     case > 0:
                         {
-                            var spCost = (decimal)ema - (decimal)atr;
+                            var spCost = position!.MarkPrice!.Value - 0.1M;
                             var getOrderDetails =
                                 await _client.Trading.GetOpenOrdersAsync(position.Symbol).ConfigureAwait(false);
                             var stopOrder = getOrderDetails.Data.FirstOrDefault(x => x.Type == FuturesOrderType.Stop);
@@ -59,7 +57,7 @@ namespace Bonsai.Services
                         }
                     case < 0:
                         {
-                            var spCost = (decimal)ema + (decimal)atr;
+                            var spCost = position!.MarkPrice!.Value + 0.1M;
                             var getOrderDetails =
                                 await _client.Trading.GetOpenOrdersAsync(position.Symbol).ConfigureAwait(false);
                             var stopOrder = getOrderDetails.Data.FirstOrDefault(x => x.Type == FuturesOrderType.Stop);
