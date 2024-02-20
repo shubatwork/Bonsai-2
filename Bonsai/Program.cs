@@ -20,6 +20,7 @@ namespace Bonsai
             builder.Services.AddTransient<IStopLossService, StopLossService>();
             builder.Services.AddHostedService<DataAnalysisWorkerService>();
             builder.Services.AddHostedService<ProfitWorkerService>();
+            builder.Services.AddHostedService<IncreasePositionService>();
 
 
             var app = builder.Build();
