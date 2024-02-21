@@ -53,7 +53,7 @@ namespace Bonsai.Services
                 {
                     continue;
                 }
-                else if (positionByAdx?.PercentChange < 0)
+                else if (positionByAdx?.PercentChange > 0)
                 {
                     var response = await CreatePosition(new SymbolData
                     {
@@ -63,19 +63,12 @@ namespace Bonsai.Services
                     }, 6M, PositionSide.Short).ConfigureAwait(false);
                     if (response)
                     {
-                        return null;
-                    }
-                }
-                else if (positionByAdx?.PercentChange > 0)
-                {
-                    var response = await CreatePosition(new SymbolData
-                    {
-                        Mode = CommonOrderSide.Buy,
-                        CurrentPrice = pos!.MarkPrice!.Value,
-                        Symbol = pos!.Symbol,
-                    }, 6M, PositionSide.Long).ConfigureAwait(false);
-                    if (response)
-                    {
+                        await CreatePosition(new SymbolData
+                        {
+                            Mode = CommonOrderSide.Buy,
+                            CurrentPrice = pos!.MarkPrice!.Value,
+                            Symbol = pos!.Symbol,
+                        }, 6M, PositionSide.Long).ConfigureAwait(false);
                         return null;
                     }
                 }
@@ -89,9 +82,14 @@ namespace Bonsai.Services
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
 
             var positionsToBeAnalyzed = positionsAvailableData.Data
-                .Where(x => x != null && x.Quantity != 0);
+                .Where(x => x != null && x.Quantity != 0 && x.UnrealizedPnl > 0);
+            if(!positionsToBeAnalyzed.Any())
+            {
+                await CreatePositionsBuy().ConfigureAwait(false);
+                return false;
+            }    
 
-            var positionByAdx = positionsToBeAnalyzed.MinBy(x => Math.Abs(x.Quantity * x.EntryPrice!.Value));
+            var positionByAdx = positionsToBeAnalyzed.MaxBy(x => x.UnrealizedPnl);
 
             if (positionByAdx!.Quantity > 0)
             {
@@ -201,10 +199,34 @@ namespace Bonsai.Services
                     if (position?.Quantity > 0)
                     {
                         await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
+                        await CreatePosition(new SymbolData
+                        {
+                            Mode = CommonOrderSide.Buy,
+                            CurrentPrice = position!.MarkPrice!.Value,
+                            Symbol = position!.Symbol,
+                        }, 6M, PositionSide.Long).ConfigureAwait(false);
                     }
                     if (position?.Quantity < 0)
                     {
                         await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
+                        await CreatePosition(new SymbolData
+                        {
+                            Mode = CommonOrderSide.Sell,
+                            CurrentPrice = position!.MarkPrice!.Value,
+                            Symbol = position!.Symbol,
+                        }, 6M, PositionSide.Short).ConfigureAwait(false);
+                    }
+                }
+
+                foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl < -1M))
+                {
+                    if (position?.Quantity > 0)
+                    {
+                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity * 0.5M, position.MarkPrice).ConfigureAwait(false);
+                    }
+                    if (position?.Quantity < 0)
+                    {
+                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity * 0.5M, position.MarkPrice).ConfigureAwait(false);
                     }
                 }
             }
