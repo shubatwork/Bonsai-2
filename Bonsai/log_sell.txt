@@ -1,0 +1,16 @@
+Sell     BTSUSDT
+Sell     STRAXUSDT
+Sell     WAVESUSDT
+Sell     HNTUSDT
+Sell     BLUEBIRDUSDT
+Sell     DGBUSDT
+Sell     WUSDT
+Sell     AEVOUSDT
+Sell     SRMUSDT
+Sell     POLYXUSDT
+Sell     AXLUSDT
+Sell     MAVUSDT
+Sell     MYROUSDT
+Sell     CTKUSDT
+Sell     BOMEUSDT
+Sell     XVGUSDT
