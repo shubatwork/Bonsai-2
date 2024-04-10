@@ -4,8 +4,6 @@ using TechnicalAnalysis.Business;
 using TechnicalAnalysis;
 using CryptoExchange.Net.CommonObjects;
 using Binance.Net.Enums;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using CryptoExchange.Net.Interfaces;
 
 namespace Bonsai.Services
 {
@@ -23,12 +21,10 @@ namespace Bonsai.Services
         public async Task<string?> CreatePositionsBuy()
         {
             Console.WriteLine("Welcome To Bonsai.");
-            Console.WriteLine("Enter 1 - Close Positions");
-            Console.WriteLine("Enter 2 - Open Positions");
-            Console.WriteLine("Enter 3 - Details");
-            var input = Console.ReadLine();
-            
-            if(input == "1")
+            Console.WriteLine("Started.");
+            var input = "2";//Console.ReadLine();
+            decimal? pnl = 0;
+            if (input == "1")
             {
                 await ClosePositionsProfit().ConfigureAwait(false);
             }
@@ -38,7 +34,7 @@ namespace Bonsai.Services
                 {
                     var positionsAvailableData =
                       await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
-
+                    
                     var positionsToBeAnalyzed = positionsAvailableData.Data
                     .Where(x =>
                         x != null
@@ -46,35 +42,35 @@ namespace Bonsai.Services
                         && !x.Symbol.ToLower().Contains("usdc")).ToList();
 
                     var result = new List<FinalResult>();
-
-                    Console.WriteLine("Enter 1 - Long");
-                    Console.WriteLine("Enter 2 - Short");
-
-                    var side = Console.ReadLine();
-
-                    Console.WriteLine("Enter Number Of Positions");
-
-                    var maxPositionToBeCreated = Convert.ToInt32(Console.ReadLine());
                     int i = 1;
 
                     foreach (var position in positionsToBeAnalyzed.DistinctBy(x => x.Symbol).OrderBy(x=>x.Symbol))
                     {
-                        if (i > maxPositionToBeCreated)
+                        if (i > 250)
                         {
                             return null;
                         }
-                        var historyData = await _client.ExchangeData.GetKlinesAsync(position.Symbol, KlineInterval.OneHour, null, null, 2).ConfigureAwait(false);
-                        var previousDay = historyData.Data.FirstOrDefault();
-                        var historyHourData = await _client.ExchangeData.GetKlinesAsync(position.Symbol, KlineInterval.FifteenMinutes, null, null, 2).ConfigureAwait(false);
+                        //var historyData = await _client.ExchangeData.GetKlinesAsync(position.Symbol, KlineInterval.FifteenMinutes, null, null, 2).ConfigureAwait(false);
+                        //var previousDay = historyData.Data.FirstOrDefault();
+                        var dataHistory = await _dataHistoryRepository.GetDataByInterval(position.Symbol, _client, KlineInterval.OneMinute).ConfigureAwait(false);
+                        var isTrending = GetAdxValue(dataHistory) > 30 ? true : false;
+                        var historyHourData = await _client.ExchangeData.GetKlinesAsync(position.Symbol, KlineInterval.FifteenMinutes, null, null, 1).ConfigureAwait(false);
                         var previousHour = historyHourData.Data.FirstOrDefault();
 
-                        if (previousDay != null && previousHour != null)
+                        if (previousHour != null)
                         {
-                            if (previousDay.HighPrice < position.MarkPrice && previousHour.HighPrice < position.MarkPrice)
+                            if (previousHour.OpenPrice < position.MarkPrice)
                             {
+                                var close = positionsAvailableData.Data.FirstOrDefault(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity < 0);
+                                if (close != null)
+                                {
+                                    await CreateOrdersLogic(close.Symbol, CommonOrderSide.Buy, close.Side, close.Quantity, close.MarkPrice).ConfigureAwait(false);
+                                    pnl = +close.UnrealizedPnl;
+                                }
+
                                 if (!positionsAvailableData.Data.Any(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity > 0))
                                 {
-                                    if (i < maxPositionToBeCreated && side == "1")
+                                    if (i < 250 && isTrending)
                                     {
                                         var response = await CreatePosition(new SymbolData
                                         {
@@ -89,11 +85,18 @@ namespace Bonsai.Services
                                     }
                                 }
                             }
-                            if (previousDay.LowPrice > position.MarkPrice && previousHour.LowPrice > position.MarkPrice)
+                            if (previousHour.OpenPrice > position.MarkPrice)
                             {
+                                var close = positionsAvailableData.Data.FirstOrDefault(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity > 0);
+                                if(close != null)
+                                {
+                                    await CreateOrdersLogic(close.Symbol, CommonOrderSide.Sell, close.Side, close.Quantity, close.MarkPrice).ConfigureAwait(false);
+                                    pnl = +close.UnrealizedPnl;
+                                }
+
                                 if (!positionsAvailableData.Data.Any(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity < 0))
                                 {
-                                    if (i < maxPositionToBeCreated && side == "2")
+                                    if (i < 250 && isTrending)
                                     {
                                         var response = await CreatePosition(new SymbolData
                                         {
@@ -116,7 +119,7 @@ namespace Bonsai.Services
                     return null;
                 }
             }
-            if(input == "3")
+            //if(input == "3")
             {
                 var positionsAvailableData =
                        await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
@@ -135,7 +138,7 @@ namespace Bonsai.Services
                 var account = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
                 Console.WriteLine("Balance:  " + account.Data.TotalMarginBalance);
             }
-           
+            Console.WriteLine("Cycle PnL = " + pnl);
             Console.WriteLine("Ended.");
             return null;
         }
@@ -304,6 +307,34 @@ namespace Bonsai.Services
         }
 
 
+        public async Task<Position?> ClosePositionsLoss()
+        {
+
+            var positionsAvailableData =
+               await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
+
+            var positionsToBeAnalyzed = positionsAvailableData.Data
+               .Where(x =>
+                   x != null
+                   && !x.Symbol.ToLower().Contains("usdc")
+                   && x.Quantity != 0).ToList();
+            {
+                foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl < -1M))
+                {
+                    if (position?.Quantity > 0)
+                    {
+                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity * 0.25M, position.MarkPrice).ConfigureAwait(false);
+                    }
+                    if (position?.Quantity < 0)
+                    {
+                        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity * 0.25M, position.MarkPrice).ConfigureAwait(false);
+                    }
+                    Console.WriteLine(position.Symbol);
+                }
+            }
+            return null;
+        }
+
         public async Task CreateOrdersLogic(string symbol, CommonOrderSide orderSide, CommonPositionSide? positionSide, decimal quantity, decimal? markPrice)
         {
             quantity = Math.Abs(quantity);
@@ -345,6 +376,10 @@ namespace Bonsai.Services
             if (!result.Success)
             {
                 Console.WriteLine(result.Error);
+            }
+            else
+            {
+                Console.WriteLine("Closed : " + symbol);
             }
         }
         #endregion

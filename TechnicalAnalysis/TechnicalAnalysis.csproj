@@ -23,7 +23,7 @@
 
   <ItemGroup>
     <!-- Code Analyzers -->
-    <PackageReference Include="Binance.Net" Version="9.1.4" />
+    <PackageReference Include="Binance.Net" Version="9.8.1" />
   </ItemGroup>
   
   <ItemGroup>
