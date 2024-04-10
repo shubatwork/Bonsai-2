@@ -23,6 +23,8 @@ namespace Bonsai.Services
             Console.WriteLine("Welcome To Bonsai.");
             Console.WriteLine("Started.");
             var input = "2";//Console.ReadLine();
+            var account = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
+
             decimal? pnl = 0;
             if (input == "1")
             {
@@ -39,8 +41,13 @@ namespace Bonsai.Services
                     .Where(x =>
                         x != null
                         && x.MarkPrice > 0
-                        && !x.Symbol.ToLower().Contains("usdc")).ToList();
+                        && !x.Symbol.ToLower().Contains("usdc")
+                        && !x.Symbol.ToLower().Contains("aave")
+                        && !x.Symbol.ToLower().Contains("avax")
+                        && !x.Symbol.ToLower().Contains("bch")
+                        && !x.Symbol.ToLower().Contains("btcusdt")).ToList();
 
+                    var canCreate = account.Data.AvailableBalance > 1 ? true : false;
                     var result = new List<FinalResult>();
                     int i = 1;
 
@@ -50,10 +57,6 @@ namespace Bonsai.Services
                         {
                             return null;
                         }
-                        //var historyData = await _client.ExchangeData.GetKlinesAsync(position.Symbol, KlineInterval.FifteenMinutes, null, null, 2).ConfigureAwait(false);
-                        //var previousDay = historyData.Data.FirstOrDefault();
-                        var dataHistory = await _dataHistoryRepository.GetDataByInterval(position.Symbol, _client, KlineInterval.OneMinute).ConfigureAwait(false);
-                        var isTrending = GetAdxValue(dataHistory) > 30 ? true : false;
                         var historyHourData = await _client.ExchangeData.GetKlinesAsync(position.Symbol, KlineInterval.FifteenMinutes, null, null, 1).ConfigureAwait(false);
                         var previousHour = historyHourData.Data.FirstOrDefault();
 
@@ -61,7 +64,7 @@ namespace Bonsai.Services
                         {
                             if (previousHour.OpenPrice < position.MarkPrice)
                             {
-                                var close = positionsAvailableData.Data.FirstOrDefault(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity < 0);
+                                var close = positionsAvailableData.Data.FirstOrDefault(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity < 0 && x.UnrealizedPnl > 0.02M);
                                 if (close != null)
                                 {
                                     await CreateOrdersLogic(close.Symbol, CommonOrderSide.Buy, close.Side, close.Quantity, close.MarkPrice).ConfigureAwait(false);
@@ -70,7 +73,7 @@ namespace Bonsai.Services
 
                                 if (!positionsAvailableData.Data.Any(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity > 0))
                                 {
-                                    if (i < 250 && isTrending)
+                                    if (i < 2 && canCreate)
                                     {
                                         var response = await CreatePosition(new SymbolData
                                         {
@@ -80,14 +83,14 @@ namespace Bonsai.Services
                                         }, 6M, PositionSide.Long).ConfigureAwait(false);
                                         if (response)
                                         {
-                                            i++;
+                                            break;
                                         }
                                     }
                                 }
                             }
                             if (previousHour.OpenPrice > position.MarkPrice)
                             {
-                                var close = positionsAvailableData.Data.FirstOrDefault(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity > 0);
+                                var close = positionsAvailableData.Data.FirstOrDefault(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity > 0 && x.UnrealizedPnl > 0.02M);
                                 if(close != null)
                                 {
                                     await CreateOrdersLogic(close.Symbol, CommonOrderSide.Sell, close.Side, close.Quantity, close.MarkPrice).ConfigureAwait(false);
@@ -96,7 +99,7 @@ namespace Bonsai.Services
 
                                 if (!positionsAvailableData.Data.Any(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity < 0))
                                 {
-                                    if (i < 250 && isTrending)
+                                    if (i < 2 && canCreate)
                                     {
                                         var response = await CreatePosition(new SymbolData
                                         {
@@ -106,7 +109,7 @@ namespace Bonsai.Services
                                         }, 6M, PositionSide.Short).ConfigureAwait(false);
                                         if (response)
                                         {
-                                            i++;
+                                            break;
                                         }
                                     }
                                 }
@@ -135,7 +138,7 @@ namespace Bonsai.Services
                 Console.WriteLine("Short Positions Profit: " + shortPositionsProfit);
 
 
-                var account = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
+                
                 Console.WriteLine("Balance:  " + account.Data.TotalMarginBalance);
             }
             Console.WriteLine("Cycle PnL = " + pnl);
