@@ -17,12 +17,12 @@ namespace TechnicalAnalysis
         }
 
         public static SmaResult Sma(int startIdx, int endIdx, double[] real)
-            => Sma(startIdx, endIdx, real, 30);
+            => Sma(startIdx, endIdx, real, 20);
 
         public static SmaResult Sma(int startIdx, int endIdx, float[] real, int timePeriod)
             => Sma(startIdx, endIdx, real.ToDouble(), timePeriod);
         
         public static SmaResult Sma(int startIdx, int endIdx, float[] real)
-            => Sma(startIdx, endIdx, real, 30);
+            => Sma(startIdx, endIdx, real, 20);
     }
 }

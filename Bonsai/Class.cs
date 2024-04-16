@@ -8,10 +8,11 @@ namespace Bonsai
         public CommonOrderSide OrderSide { get; set; }
     }
 
-    public class AdxFinalResult
+    public class BollingerResult
     {
-        public double AdxValue { get; set; }
-        public Position? Position { get; set; }
+        public double UpperBand { get; set; }
+        public double LowerBand { get; set; }
+        public double MiddleBand { get; set; }
     }
 
     public class FinalResult
