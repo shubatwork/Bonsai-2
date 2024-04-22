@@ -52,5 +52,50 @@ namespace TechnicalAnalysis.Business
         public double[] Average { get; }
 
         public Dictionary<Indicator, IndicatorBase> Indicators { get; }
+
+        public Dictionary<string, double[]> CalculateBollingerBands(int period, double standardDeviationMultiplier)
+        {
+            if (period <= 0)
+            {
+                throw new ArgumentException("Period must be greater than zero.", nameof(period));
+            }
+
+            if (standardDeviationMultiplier <= 0)
+            {
+                throw new ArgumentException("Standard deviation multiplier must be greater than zero.", nameof(standardDeviationMultiplier));
+            }
+
+            Dictionary<string, double[]> bollingerBands = new Dictionary<string, double[]>();
+
+            int dataSize = _candles.Count;
+
+            double[] middleBand = new double[dataSize];
+            double[] upperBand = new double[dataSize];
+            double[] lowerBand = new double[dataSize];
+
+            for (int i = period - 1; i < dataSize; i++)
+            {
+                double[] prices = Close.Skip(i - period + 1).Take(period).ToArray();
+                double mean = prices.Average();
+                double stdDev = CalculateStandardDeviation(prices, mean);
+
+                middleBand[i] = mean;
+                upperBand[i] = mean + stdDev * standardDeviationMultiplier;
+                lowerBand[i] = mean - stdDev * standardDeviationMultiplier;
+            }
+
+            bollingerBands.Add("MiddleBand", middleBand);
+            bollingerBands.Add("UpperBand", upperBand);
+            bollingerBands.Add("LowerBand", lowerBand);
+
+            return bollingerBands;
+        }
+
+        // Helper method to calculate standard deviation
+        private double CalculateStandardDeviation(double[] values, double mean)
+        {
+            double sumOfSquares = values.Sum(v => Math.Pow(v - mean, 2));
+            return Math.Sqrt(sumOfSquares / values.Length);
+        }
     }
 }

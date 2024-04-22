@@ -16,16 +16,27 @@ public class DataAnalysisWorkerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var closed = new List<Position?>();
         while (!stoppingToken.IsCancellationRequested)
         {
-            await DoBackupAsync().ConfigureAwait(false);
-            await Task.Delay(GeneralDelay, stoppingToken);
+           closed = await DoBackupAsync(closed).ConfigureAwait(false);
+           await Task.Delay(GeneralDelay, stoppingToken);
         }
     }
 
-    private async Task<string?> DoBackupAsync()
+    private async Task<List<Position?>> DoBackupAsync(List<Position?> notToBeCreated)
     {
-        await _dataAnalysisService.CreatePositionsBuy().ConfigureAwait(false);
-        return null;
+        var x = await _dataAnalysisService.ClosePositions().ConfigureAwait(false);
+        if(x == null)
+        {
+            notToBeCreated.Add(x);
+            //await _dataAnalysisService.CreatePositionsBuy(notToBeCreated).ConfigureAwait(false);
+        }
+        
+        if (notToBeCreated.Count > 50)
+        {
+            notToBeCreated.Clear();
+        }
+        return notToBeCreated;
     }
 }
