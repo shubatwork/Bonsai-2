@@ -23,7 +23,7 @@ namespace Bonsai.Services
 
         public async Task<string?> CreatePositionsBuy(List<Position?> notToBeCreated)
         {
-            
+
             var positionsAvailableData =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
             var bal = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
@@ -85,12 +85,12 @@ namespace Bonsai.Services
                                 CurrentPrice = position!.MarkPrice!.Value,
                                 Symbol = position.Symbol,
                             }, 6M, PositionSide.Long).ConfigureAwait(false);
-                            if(response)
+                            if (response)
                             {
                                 Console.WriteLine(position.Symbol);
                                 break;
                             }
-                           
+
                         }
                     }
 
@@ -232,9 +232,13 @@ namespace Bonsai.Services
             var positionsAvailableData =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
 
-            if(positionsAvailableData.Success) 
+            if (positionsAvailableData.Success)
             {
-                await ClosePositionsLoss().ConfigureAwait(false);
+                var loss = positionsAvailableData.Data.Sum(x => x.UnrealizedPnl);
+                if (loss < -5M)
+                {
+                    await ClosePositionsLoss().ConfigureAwait(false);
+                }
                 var positionsToBeAnalyzed = positionsAvailableData.Data
                .Where(x =>
                    x != null
@@ -272,7 +276,7 @@ namespace Bonsai.Services
                    && !x.Symbol.ToLower().Contains("usdc")
                    && x.Quantity != 0).ToList();
             {
-                foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl < -2M))
+                foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl < -1M))
                 {
                     if (position?.Quantity > 0)
                     {
