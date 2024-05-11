@@ -6,13 +6,15 @@ namespace Bonsai.Workers;
 public class DataAnalysisWorkerService : BackgroundService
 {
     private readonly IDataAnalysisService _dataAnalysisService;
+    private readonly IStopLossService _stopLossService;
 
-    public DataAnalysisWorkerService(IDataAnalysisService dataAnalysisService)
+    public DataAnalysisWorkerService(IDataAnalysisService dataAnalysisService, IStopLossService stopLossService)
     {
         _dataAnalysisService = dataAnalysisService;
+        _stopLossService = stopLossService;
     }
 
-    private const int GeneralDelay = 1000 * 10;
+    private const int GeneralDelay = 10;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -26,17 +28,19 @@ public class DataAnalysisWorkerService : BackgroundService
 
     private async Task<List<Position?>> DoBackupAsync(List<Position?> notToBeCreated)
     {
+        await _dataAnalysisService.CreatePositionsBuy(notToBeCreated).ConfigureAwait(false);
+        //await _stopLossService.CreateOrdersForTrailingStopLoss().ConfigureAwait(false);
         var x = await _dataAnalysisService.ClosePositions().ConfigureAwait(false);
-        if(x == null)
+
+        if (x != null && !notToBeCreated.Select(x => x!.Symbol).Contains(x!.Symbol))
         {
             notToBeCreated.Add(x);
-            //await _dataAnalysisService.CreatePositionsBuy(notToBeCreated).ConfigureAwait(false);
         }
-        
-        if (notToBeCreated.Count > 50)
-        {
-            notToBeCreated.Clear();
-        }
+
+        //if (notToBeCreated.Count > 100)
+        //{
+        //    notToBeCreated.Clear();
+        //}
         return notToBeCreated;
     }
 }

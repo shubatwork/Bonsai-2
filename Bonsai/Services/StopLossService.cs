@@ -22,11 +22,13 @@ namespace Bonsai.Services
             var positionsToBeClosed =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
 
-            var positions = positionsToBeClosed.Data.Where(x => x.Quantity == 0);
-            foreach (var position in positions)
-            {
-                await _client.Trading.CancelAllOrdersAsync(position.Symbol).ConfigureAwait(false);
-            }
+            //var positionTaken = positionsToBeClosed.Data.Where(x => x.Quantity != 0).Select(x => x.Symbol).ToList();
+
+            //var positions = positionsToBeClosed.Data.Where(x => x.Quantity == 0 && !positionTaken.Contains(x.Symbol));
+            //foreach (var position in positions.DistinctBy(x => x.Symbol))
+            //{
+            //    await _client.Trading.CancelAllOrdersAsync(position.Symbol).ConfigureAwait(false);
+            //}
 
             foreach (var position in positionsToBeClosed.Data.Where(x => x.Quantity != 0))
             {
@@ -35,14 +37,14 @@ namespace Bonsai.Services
                 {
                     case > 0:
                         {
-                            var spCost = position!.MarkPrice!.Value - 0.1M;
+                            var spCost = Math.Abs(((position!.MarkPrice!.Value * position.Quantity) - .1M) / position.Quantity);
                             var getOrderDetails =
                                 await _client.Trading.GetOpenOrdersAsync(position.Symbol).ConfigureAwait(false);
                             var stopOrder = getOrderDetails.Data.FirstOrDefault(x => x.Type == FuturesOrderType.Stop);
                             if (stopOrder == null || stopOrder.Id == 0)
                             {
                                 await CreateOrdersLogic(spCost, position.Symbol, position.Quantity, FuturesOrderType.Stop,
-                                    OrderSide.Sell).ConfigureAwait(false);
+                                    OrderSide.Sell, PositionSide.Long).ConfigureAwait(false);
                                 break;
                             }
 
@@ -50,21 +52,21 @@ namespace Bonsai.Services
                             {
                                 await _client.Trading.CancelOrderAsync(position.Symbol, stopOrder.Id).ConfigureAwait(false);
                                 await CreateOrdersLogic(spCost, position.Symbol, position.Quantity, FuturesOrderType.Stop,
-                                    OrderSide.Sell).ConfigureAwait(false);
+                                    OrderSide.Sell, PositionSide.Long).ConfigureAwait(false);
                             }
 
                             break;
                         }
                     case < 0:
                         {
-                            var spCost = position!.MarkPrice!.Value + 0.1M;
+                            var spCost = Math.Abs(((position!.MarkPrice!.Value * Math.Abs(position.Quantity)) + .1M) / position.Quantity);
                             var getOrderDetails =
                                 await _client.Trading.GetOpenOrdersAsync(position.Symbol).ConfigureAwait(false);
                             var stopOrder = getOrderDetails.Data.FirstOrDefault(x => x.Type == FuturesOrderType.Stop);
                             if (stopOrder == null || stopOrder.Id == 0)
                             {
                                 await CreateOrdersLogic(spCost, position.Symbol, position.Quantity, FuturesOrderType.Stop,
-                                    OrderSide.Buy).ConfigureAwait(false);
+                                    OrderSide.Buy, PositionSide.Short).ConfigureAwait(false);
                                 break;
                             }
 
@@ -72,12 +74,14 @@ namespace Bonsai.Services
                             {
                                 await _client.Trading.CancelOrderAsync(position.Symbol, stopOrder.Id).ConfigureAwait(false);
                                 await CreateOrdersLogic(spCost, position.Symbol, position.Quantity, FuturesOrderType.Stop,
-                                    OrderSide.Buy).ConfigureAwait(false);
+                                    OrderSide.Buy, PositionSide.Short).ConfigureAwait(false);
                             }
                             break;
                         }
                 }
             }
+
+            
         }
 
         private static double GetEmaValue(DataHistory data)
@@ -108,30 +112,30 @@ namespace Bonsai.Services
             }
         }
 
-        private async Task CreateOrdersLogic(decimal spCost, string symbol, decimal quantity, FuturesOrderType orderType, OrderSide orderSide)
+        private async Task CreateOrdersLogic(decimal spCost, string symbol, decimal quantity, FuturesOrderType orderType, OrderSide orderSide, PositionSide positionSide)
         {
             quantity = Math.Abs(quantity);
             spCost = Math.Round(spCost, 6);
             var result = await _client.Trading.PlaceOrderAsync(symbol, orderSide
-                , orderType, quantity, spCost, null, null, null, null, spCost);
+                , orderType, quantity, spCost, positionSide, null, null, null, spCost);
 
             if (!result.Success)
             {
                 spCost = Math.Round(spCost, 5);
                 result = await _client.Trading.PlaceOrderAsync(symbol, orderSide,
-                    orderType, quantity, spCost, null, null, null, null, spCost);
+                    orderType, quantity, spCost, positionSide, null, null, null, spCost);
             }
             if (!result.Success)
             {
                 spCost = Math.Round(spCost, 4);
                 result = await _client.Trading.PlaceOrderAsync(symbol, orderSide,
-                    orderType, quantity, spCost, null, null, null, null, spCost);
+                    orderType, quantity, spCost, positionSide, null, null, null, spCost);
             }
             if (!result.Success)
             {
                 spCost = Math.Round(spCost, 3);
                 result = await _client.Trading.PlaceOrderAsync(symbol, orderSide,
-                    orderType, quantity, spCost, null, null, null, null, spCost);
+                    orderType, quantity, spCost, positionSide, null, null, null, spCost);
             }
             if (!result.Success)
             {
@@ -143,13 +147,13 @@ namespace Bonsai.Services
             {
                 spCost = Math.Round(spCost, 1);
                 result = await _client.Trading.PlaceOrderAsync(symbol, orderSide,
-                    orderType, quantity, spCost, null, null, null, null, spCost);
+                    orderType, quantity, spCost, positionSide, null, null, null, spCost);
             }
             if (!result.Success)
             {
                 spCost = Math.Round(spCost, 0);
                 result = await _client.Trading.PlaceOrderAsync(symbol, orderSide,
-                    orderType, quantity, spCost, null, null, null, null, spCost);
+                    orderType, quantity, spCost, positionSide, null, null, null, spCost);
             }
 
             if (!result.Success)

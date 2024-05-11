@@ -11,7 +11,7 @@ namespace TechnicalAnalysis.Business
     {
         public async Task<DataHistory> GetDataByInterval(string symbol, IBinanceRestClientUsdFuturesApi _client, KlineInterval klineInterval = KlineInterval.FiveMinutes)
         {
-            var task1 = await _client.ExchangeData.GetKlinesAsync(symbol, klineInterval, null, null, 60).ConfigureAwait(false);
+            var task1 = await _client.ExchangeData.GetKlinesAsync(symbol, klineInterval, null, null, 31).ConfigureAwait(false);
             
             var dataHistory = ParseJson(task1.Data);
             return dataHistory;
