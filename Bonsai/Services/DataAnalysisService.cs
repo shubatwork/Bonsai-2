@@ -30,108 +30,85 @@ namespace Bonsai.Services
 
             if (positionsAvailableData.Success)
             {
+                try
+                {
+                    var account = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
 
-                var positionsToBeAnalyzed = positionsAvailableData.Data
-                .Where(x =>
-                    x != null
-                    && x.MarkPrice > 0
-                    && !x.Symbol.ToLower().Contains("usdc")
-                    && !x.Symbol.ToLower().Contains("aave")
-                    && !x.Symbol.ToLower().Contains("avax")
-                    && !x.Symbol.ToLower().Contains("bch")
-                    && !x.Symbol.ToLower().Contains("btcusdt")
-                    && !x.Symbol.ToLower().Contains("bluebird")
-                    && !x.Symbol.ToLower().Contains("btsusdt")
-                    && !x.Symbol.ToLower().Contains("cocos")
-                    && !x.Symbol.ToLower().Contains("ctk")
-                    && !x.Symbol.ToLower().Contains("cvc")
-                    && !x.Symbol.ToLower().Contains("antusdt")
-                    && !x.Symbol.ToLower().Contains("btcdom")
-                    && !x.Symbol.ToLower().Contains("dgbusdt")
-                    && !x.Symbol.ToLower().Contains("shibusdt")
-                    ).ToList();
+                    if (!account.Success || account.Data.TotalMaintMargin / account.Data.TotalMarginBalance > .3M)
+                    {
+                        return null;
+                    }
 
-                var canCreate = true;
-                var positionCount = positionsAvailableData.Data.Where(x => x.Quantity != 0).DistinctBy(x=>x.Symbol).Count();
-                if (positionCount > 0)
+                    var data1 = await _client.ExchangeData.GetTickersAsync().ConfigureAwait(false);
+
+                    foreach (var position in data1.Data.Where(x => !x.Symbol.ToLower().Contains("usdc")
+                    && !x.Symbol.ToLower().Contains("btc")
+                    && !x.Symbol.ToLower().Contains("tia"))
+                        .DistinctBy(x => x.Symbol)
+                        .OrderByDescending(x => x.PriceChangePercent).Take(10))
+                    {
+                        var markPrice = await _client.ExchangeData.GetMarkPriceAsync(position.Symbol).ConfigureAwait(false);
+
+                        if (position.PriceChangePercent > 0)
+                        {
+                            if (!positionsAvailableData.Data.Any(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity > 0))
+                            {
+                                var response = await CreatePosition(new SymbolData
+                                {
+                                    Mode = CommonOrderSide.Buy,
+                                    CurrentPrice = markPrice.Data.MarkPrice,
+                                    Symbol = position.Symbol,
+                                }, 20M, PositionSide.Long).ConfigureAwait(false);
+                                if (response)
+                                {
+                                    Console.WriteLine(position.Symbol);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    foreach (var position in data1.Data.Where(x => !x.Symbol.ToLower().Contains("usdc")
+                    && !x.Symbol.ToLower().Contains("btc")
+                    && !x.Symbol.ToLower().Contains("tia"))
+                        .DistinctBy(x => x.Symbol)
+                        .OrderBy(x => x.PriceChangePercent).Take(10))
+                    {
+                        if (position.PriceChangePercent < 0)
+                        {
+                            var markPrice = await _client.ExchangeData.GetMarkPriceAsync(position.Symbol).ConfigureAwait(false);
+
+                            var dataHistory = await _client.ExchangeData.GetKlinesAsync(position.Symbol, KlineInterval.OneHour, null, null, 1).ConfigureAwait(false);
+                            if (dataHistory.Data.FirstOrDefault()!.OpenPrice < markPrice.Data.MarkPrice)
+                            {
+                                continue;
+                            }
+                            if (!positionsAvailableData.Data.Any(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity < 0))
+                            {
+                                var response = await CreatePosition(new SymbolData
+                                {
+                                    Mode = CommonOrderSide.Sell,
+                                    CurrentPrice = markPrice.Data.MarkPrice,
+                                    Symbol = position.Symbol,
+                                }, 20M, PositionSide.Short).ConfigureAwait(false);
+                                if (response)
+                                {
+                                    Console.WriteLine(position.Symbol);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    return null;
+                }
+                catch (Exception)
                 {
                     return null;
-                    canCreate = false;
-                    positionsToBeAnalyzed = positionsToBeAnalyzed.Where(x => x.Quantity != 0).ToList();
-                }
-
-                //if (notToBeCreated.Any())
-                //{
-                //    positionsToBeAnalyzed.RemoveAll(position => positionsAvailableData.Data.Any(notAllowed => notAllowed != null && notAllowed!.Symbol == position.Symbol && notAllowed.Quantity != 0));
-                //}
-
-                var positions = positionsAvailableData.Data.Where(x => x.Quantity == 0);
-                foreach (var position in positions.DistinctBy(x => x.Symbol))
-                {
-                    await _client.Trading.CancelAllOrdersAsync(position.Symbol).ConfigureAwait(false);
-                }
-                foreach (var position in positionsToBeAnalyzed.DistinctBy(x => x.Symbol).OrderBy(x => x.Symbol).Take(300)) 
-                {
-                    if (notToBeCreated.Count(x => x.Symbol == position.Symbol) > 0)
-                    {
-                        continue;
-                    }
-                    var data = await _dataHistoryRepository.GetDataByInterval(position.Symbol, _client, KlineInterval.OneHour).ConfigureAwait(false);
-                    Dictionary<string, double[]> bollingerBands = data.CalculateBollingerBands(21, 2);
-                    double[] middleBand = bollingerBands["MiddleBand"];
-                    double[] upperBand = bollingerBands["UpperBand"];
-                    double[] lowerBand = bollingerBands["LowerBand"];
-
-                    var bollingerResult = new BollingerResult
-                    {
-                        UpperBand = upperBand.Last(),
-                        LowerBand = lowerBand.Last(),
-                        MiddleBand = middleBand.Last(),
-                    };
-
-
-                    if (bollingerResult != null && bollingerResult.UpperBand < (double)position!.MarkPrice!.Value && canCreate)
-                    {
-                        if (!positionsAvailableData.Data.Any(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity > 0))
-                        {
-                            var response = await CreatePosition(new SymbolData
-                            {
-                                Mode = CommonOrderSide.Buy,
-                                CurrentPrice = position!.MarkPrice!.Value,
-                                Symbol = position.Symbol,
-                            }, 10M, PositionSide.Long).ConfigureAwait(false);
-                            if (response)
-                            {
-                                Console.WriteLine(position.Symbol);
-                                break;
-                            }
-
-                        }
-                    }
-
-                    if (bollingerResult != null && bollingerResult.LowerBand > (double)position!.MarkPrice!.Value && canCreate)
-                    {
-                        if (!positionsAvailableData.Data.Any(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity < 0))
-                        {
-                            var response = await CreatePosition(new SymbolData
-                            {
-                                Mode = CommonOrderSide.Sell,
-                                CurrentPrice = position!.MarkPrice!.Value,
-                                Symbol = position.Symbol,
-                            }, 10M, PositionSide.Short).ConfigureAwait(false);
-                            if (response)
-                            {
-                                Console.WriteLine(position.Symbol);
-                                break;
-                            }
-                        }
-                    }
                 }
             }
 
             return null;
         }
-
         public async Task<bool> IncreasePositions()
         {
             var positionsAvailableData =
@@ -156,14 +133,14 @@ namespace Bonsai.Services
                 }
                 if (positionByAdx!.Quantity > 0)
                 {
-                    if (!positionsAvailableData.Data.Any(x => x.Symbol.ToLower().Equals(positionByAdx.Symbol.ToLower()) && x.Quantity < 0))
+                    if (!positionsAvailableData.Data.Any(x => x.Symbol.ToLower().Equals(positionByAdx.Symbol.ToLower()) && x.Quantity > 0))
                     {
                         var response = await CreatePosition(new SymbolData
                         {
                             Mode = CommonOrderSide.Sell,
                             CurrentPrice = positionByAdx!.MarkPrice!.Value,
                             Symbol = positionByAdx!.Symbol,
-                        }, 10M, PositionSide.Short).ConfigureAwait(false);
+                        }, 100M, PositionSide.Short).ConfigureAwait(false);
                     }
                 }
             }
@@ -252,113 +229,27 @@ namespace Bonsai.Services
                 var positionsToBeAnalyzed = positionsAvailableData.Data
                .Where(x =>
                    x != null
-                   && !x.Symbol.ToLower().Contains("usdc")
                    && x.Quantity != 0).ToList();
                 {
                     foreach (var position in positionsToBeAnalyzed)
                     {
-                        return position;
-                        //if (position.UnrealizedPnl < -0.2M)
-                        //{
-                        //    if (position?.Quantity > 0)
-                        //    {
-                        //        var response1 = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                        //        //if (response1)
-                        //        //{
-                        //        //    var response = await CreatePosition(new SymbolData
-                        //        //    {
-                        //        //        Mode = CommonOrderSide.Sell,
-                        //        //        CurrentPrice = position!.MarkPrice!.Value,
-                        //        //        Symbol = position.Symbol,
-                        //        //    }, 100M, PositionSide.Short).ConfigureAwait(false);
-                        //        //}
-                        //        return position;
-                        //    }
-                        //    if (position?.Quantity < 0)
-                        //    {
-                        //        var response1 = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                        //        //if (response1)
-                        //        //{
-                        //        //    var response = await CreatePosition(new SymbolData
-                        //        //    {
-                        //        //        Mode = CommonOrderSide.Buy,
-                        //        //        CurrentPrice = position!.MarkPrice!.Value,
-                        //        //        Symbol = position.Symbol,
-                        //        //    }, 100M, PositionSide.Long).ConfigureAwait(false);
-                        //        //}
-                        //        return position;
-                        //    }
-                        //}
-                        //if (position.UnrealizedPnl > 10M)
-                        //{
-                        //    if (position?.Quantity > 0)
-                        //    {
-                        //        var response1 = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                        //        return position;
-                        //    }
-                        //    if (position?.Quantity < 0)
-                        //    {
-                        //       var response1 = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                        //        return position;
-                        //    }
-                        //}
-                        ////if (position.UnrealizedPnl > 3M)
-                        //{
-                        //    if (position?.Quantity > 0)
-                        //    {
-                        //        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                        //    }
-                        //    if (position?.Quantity < 0)
-                        //    {
-                        //        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                        //    }
-                        //}
-                        //else
-                        //{
-                        //    if (position?.Quantity > 0 && Math.Abs(position!.Quantity * position.EntryPrice!.Value) < 200 && position.UnrealizedPnl > 0)
-                        //    {
-                        //        var response = await CreatePosition(new SymbolData
-                        //        {
-                        //            Mode = CommonOrderSide.Buy,
-                        //            CurrentPrice = position!.MarkPrice!.Value,
-                        //            Symbol = position.Symbol,
-                        //        }, 500M, PositionSide.Long).ConfigureAwait(false);
-
-                        //    }
-                        //    if (position?.Quantity > 0 && Math.Abs(position!.Quantity * position.EntryPrice!.Value) < 200 && position.UnrealizedPnl < 0)
-                        //    {
-                        //        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                        //        var response = await CreatePosition(new SymbolData
-                        //        {
-                        //            Mode = CommonOrderSide.Sell,
-                        //            CurrentPrice = position!.MarkPrice!.Value,
-                        //            Symbol = position.Symbol,
-                        //        }, 500M, PositionSide.Short).ConfigureAwait(false);
-                        //    }
-
-                        //    if (position?.Quantity < 0 && Math.Abs(position!.Quantity * position.EntryPrice!.Value) < 200 && position.UnrealizedPnl > 0)
-                        //    {
-                        //        var response = await CreatePosition(new SymbolData
-                        //        {
-                        //            Mode = CommonOrderSide.Sell,
-                        //            CurrentPrice = position!.MarkPrice!.Value,
-                        //            Symbol = position.Symbol,
-                        //        }, 500M, PositionSide.Short).ConfigureAwait(false);
-
-                        //    }
-                        //    if (position?.Quantity < 0 && Math.Abs(position!.Quantity * position.EntryPrice!.Value) < 200 && position.UnrealizedPnl < 0)
-                        //    {
-                        //        await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                        //        var response = await CreatePosition(new SymbolData
-                        //        {
-                        //            Mode = CommonOrderSide.Buy,
-                        //            CurrentPrice = position!.MarkPrice!.Value,
-                        //            Symbol = position.Symbol,
-                        //        }, 500M, PositionSide.Long).ConfigureAwait(false);
-
-                        //    }
-                        //}
-
+                        if (position.Quantity > 0 && position.UnrealizedPnl > .4M)
+                        {
+                            await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
+                        }
+                        if (position.Quantity < 0 && position.UnrealizedPnl > .4M)
+                        {
+                            await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
+                        }
+                        if (position.Quantity > 0 && position.UnrealizedPnl < -.2M)
+                        {
+                            await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity * .5M, position.MarkPrice).ConfigureAwait(false);
+                        }
+                        if (position.Quantity < 0 && position.UnrealizedPnl < -.2M)
+                        {
+                            await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity * .5M, position.MarkPrice).ConfigureAwait(false);
+                            
+                        }
                     }
                 }
             }
@@ -455,7 +346,7 @@ namespace Bonsai.Services
 
             if (!result.Success)
             {
-                Console.WriteLine(result.Error);
+                Console.WriteLine(result.Error + symbol);
             }
             else
             {

@@ -22,17 +22,16 @@ namespace Bonsai.Services
             var positionsToBeClosed =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
 
-            //var positionTaken = positionsToBeClosed.Data.Where(x => x.Quantity != 0).Select(x => x.Symbol).ToList();
+            var positionTaken = positionsToBeClosed.Data.Where(x => x.Quantity != 0).Select(x => x.Symbol).ToList();
 
-            //var positions = positionsToBeClosed.Data.Where(x => x.Quantity == 0 && !positionTaken.Contains(x.Symbol));
-            //foreach (var position in positions.DistinctBy(x => x.Symbol))
-            //{
-            //    await _client.Trading.CancelAllOrdersAsync(position.Symbol).ConfigureAwait(false);
-            //}
-
-            foreach (var position in positionsToBeClosed.Data.Where(x => x.Quantity != 0))
+            var positions = positionsToBeClosed.Data.Where(x => x.Quantity == 0 && !positionTaken.Contains(x.Symbol));
+            foreach (var position in positions.DistinctBy(x => x.Symbol))
             {
-               
+                await _client.Trading.CancelAllOrdersAsync(position.Symbol).ConfigureAwait(false);
+            }
+
+            foreach (var position in positionsToBeClosed.Data.Where(x => x.Quantity != 0 && x.UnrealizedPnl > 0.1M))
+            {
                 switch (position.Quantity)
                 {
                     case > 0:
