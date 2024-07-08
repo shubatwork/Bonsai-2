@@ -12,7 +12,7 @@ public class ProfitWorkerService : BackgroundService
         profit = profitService;
     }
 
-    private const int GeneralDelay = 1000 * 10;
+    private const int GeneralDelay = 1000;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

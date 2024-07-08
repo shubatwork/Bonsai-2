@@ -1,4 +1,5 @@
-﻿using CryptoExchange.Net.CommonObjects;
+﻿using Binance.Net.Interfaces;
+using CryptoExchange.Net.CommonObjects;
 using TechnicalAnalysis.Business;
 
 namespace Bonsai
@@ -27,11 +28,8 @@ namespace Bonsai
 
     public class DailyResult
     {
-        public decimal PercentChange { get; set; }
         public double AdxValue { get; set; }
-        public double? RsiValue { get; set; }
-        public Position? Position { get; set; }
-        public CommonOrderSide? CommonOrderSide { get; set; }
+        public IBinance24HPrice? DailyPrice { get; set; }
     }
     public class AnalysisResult
     {

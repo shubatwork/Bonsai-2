@@ -36,7 +36,7 @@ namespace Bonsai.Services
                 {
                     case > 0:
                         {
-                            var spCost = Math.Abs(((position!.MarkPrice!.Value * position.Quantity) - .1M) / position.Quantity);
+                            var spCost = Math.Abs(((position!.MarkPrice!.Value * position.Quantity) - 1M) / position.Quantity);
                             var getOrderDetails =
                                 await _client.Trading.GetOpenOrdersAsync(position.Symbol).ConfigureAwait(false);
                             var stopOrder = getOrderDetails.Data.FirstOrDefault(x => x.Type == FuturesOrderType.Stop);
@@ -58,7 +58,7 @@ namespace Bonsai.Services
                         }
                     case < 0:
                         {
-                            var spCost = Math.Abs(((position!.MarkPrice!.Value * Math.Abs(position.Quantity)) + .1M) / position.Quantity);
+                            var spCost = Math.Abs(((position!.MarkPrice!.Value * Math.Abs(position.Quantity)) + 1M) / position.Quantity);
                             var getOrderDetails =
                                 await _client.Trading.GetOpenOrdersAsync(position.Symbol).ConfigureAwait(false);
                             var stopOrder = getOrderDetails.Data.FirstOrDefault(x => x.Type == FuturesOrderType.Stop);

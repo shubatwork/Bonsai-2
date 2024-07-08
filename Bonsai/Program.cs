@@ -19,6 +19,7 @@ namespace Bonsai
             builder.Services.AddTransient<IDataHistoryRepository, DataHistoryRepository>();
             builder.Services.AddTransient<IStopLossService, StopLossService>();
             builder.Services.AddHostedService<DataAnalysisWorkerService>();
+            builder.Services.AddHostedService<ProfitWorkerService>();
 
 
             var app = builder.Build();

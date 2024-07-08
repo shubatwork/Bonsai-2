@@ -9,12 +9,15 @@ namespace TechnicalAnalysis.Business
 {
     public class DataHistoryRepository : IDataHistoryRepository
     {
-        public async Task<DataHistory> GetDataByInterval(string symbol, IBinanceRestClientUsdFuturesApi _client, KlineInterval klineInterval = KlineInterval.FiveMinutes)
+        public async Task<DataHistory?> GetDataByInterval(string symbol, IBinanceRestClientUsdFuturesApi _client, KlineInterval klineInterval = KlineInterval.FiveMinutes)
         {
-            var task1 = await _client.ExchangeData.GetKlinesAsync(symbol, klineInterval, null, null, 31).ConfigureAwait(false);
-            
-            var dataHistory = ParseJson(task1.Data);
-            return dataHistory;
+            var task1 = await _client.ExchangeData.GetKlinesAsync(symbol, klineInterval, null, null, 60).ConfigureAwait(false);
+            if(task1.Data != null) {
+                var dataHistory = ParseJson(task1.Data);
+                return dataHistory;
+            }
+
+            return null ;
         }
 
         private static DataHistory ParseJson(IEnumerable<Binance.Net.Interfaces.IBinanceKline> data)
