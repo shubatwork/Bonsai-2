@@ -29,7 +29,7 @@ public class DataAnalysisWorkerService : BackgroundService
     private async Task<List<Position?>> DoBackupAsync(List<Position?> notToBeCreated)
     {
         await _dataAnalysisService.CreatePositionsBuy(null).ConfigureAwait(false);
-        //var x = await _dataAnalysisService.ClosePositions().ConfigureAwait(false);
+        var x = await _dataAnalysisService.ClosePositions().ConfigureAwait(false);
         return notToBeCreated;
     }
 }
