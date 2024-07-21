@@ -12,7 +12,7 @@ namespace Bonsai
         {
             return new BinanceRestClient(options =>
             {
-                options.ApiCredentials = new ApiCredentials("odCingfD91PswsUuN7nY1twne2ztzHwSlAt08ZpapxsgXIow9NJ7JnUOtI6ftlUK", "FBVc9ZhYhwjI10VzlcvJ4osH9dIjjUDxbCxDKHwttxMZer4ICeyPHR9sszfn459D");
+                options.ApiCredentials = new ApiCredentials("b00EypXpxX6n0QLjr92fF4WdwPwnXlxc2vcJh4s5vKgprZRgIFPuwJFALWR3nHHS", "fOp4FfrZrOU7kG3G046oYivazhKzJYsrXA7ymZaV68aOAIFolsMs9xGpvbrKfT7x");
             options.AutoTimestamp= true;
             }).UsdFuturesApi;
         }
