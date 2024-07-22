@@ -7,7 +7,7 @@ namespace Bonsai
 {
     [Route("api/account")]
     [ApiController]
-    public class ValuesController : ControllerBase
+    public class ValuesController : Controller
     {
         private readonly IBinanceRestClientUsdFuturesApi _client;
 
@@ -21,7 +21,7 @@ namespace Bonsai
         {
             var account = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
             //return Ok(account);
-            return Ok("Balance :" + account?.Data?.TotalMarginBalance + "   Loss :" + account?.Data?.TotalUnrealizedProfit);
+            return View(account.Data);
         }
     }
 }

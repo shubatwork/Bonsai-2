@@ -36,9 +36,12 @@ namespace Bonsai.Services
                     foreach (var position in data1.Data.Where(x => !x!.Symbol.ToLower().Contains("usdc")
                     && !x.Symbol.ToLower().Contains("btc")
                     && !x.Symbol.ToLower().Contains("crv")
-                    && !x.Symbol.ToLower().Contains("tia"))
+                    && !x.Symbol.ToLower().Contains("tia")
+                    && !x.Symbol.ToLower().Contains("ocean")
+                    && !x.Symbol.ToLower().Contains("dgb")
+                    && !x.Symbol.ToLower().Contains("agix"))
                         .DistinctBy(x => x!.Symbol)
-                        .OrderByDescending(x => x.PriceChangePercent).Take(5))
+                        .OrderBy(x => x.PriceChangePercent).Take(5))
                     {
                         if (!positionsAvailableData.Data.Any(x => x.Symbol.ToLower().Equals(position!.Symbol.ToLower()) && x.Quantity > 0) && canBuy)
                         {

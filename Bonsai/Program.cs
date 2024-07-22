@@ -20,7 +20,7 @@ namespace Bonsai
             builder.Services.AddTransient<IStopLossService, StopLossService>();
             builder.Services.AddHostedService<DataAnalysisWorkerService>();
 
-
+            builder.Services.AddControllersWithViews();
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
