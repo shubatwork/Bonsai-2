@@ -18,12 +18,9 @@ namespace Bonsai
 
     public class FinalResult
     {
-        public double AdxValue { get; set; }
+        public decimal PercentRise { get; set; }
         public Position? Position { get; set; }
-        public DataHistory? DataHistory { get; set; }
-        public CommonOrderSide? OrderSide { get; set; }
-        public decimal? OpenPrice { get; set; }
-        public double? RsiValue { get; set; }
+        public decimal? MarkPrice { get; set; }
     }
 
     public class DailyResult
