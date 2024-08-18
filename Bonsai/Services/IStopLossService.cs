@@ -5,5 +5,6 @@ namespace Bonsai.Services
     public interface IStopLossService
     {
         Task CreateOrdersForTrailingStopLoss();
+        Task CloseOrders();
     }
 }

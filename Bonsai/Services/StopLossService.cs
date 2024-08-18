@@ -17,26 +17,40 @@ namespace Bonsai.Services
             _dataHistoryRepository = dataHistoryRepository;
         }
 
+        public async Task CloseOrders()
+        {
+
+            var positionsAvailableData =
+               await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
+
+            if (positionsAvailableData.Success)
+            {
+                {
+                    foreach (var z in positionsAvailableData.Data)
+                    {
+                        await _client.Trading.CancelAllOrdersAsync(z.Symbol).ConfigureAwait(false);
+                    }
+                }
+                }
+        }
+
         public async Task CreateOrdersForTrailingStopLoss()
         {
             var positionsToBeClosed =
                await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
 
-            var positionTaken = positionsToBeClosed.Data.Where(x => x.Quantity != 0).Select(x => x.Symbol).ToList();
 
-            var positions = positionsToBeClosed.Data.Where(x => x.Quantity == 0 && !positionTaken.Contains(x.Symbol));
-            foreach (var position in positions.DistinctBy(x => x.Symbol))
-            {
-                await _client.Trading.CancelAllOrdersAsync(position.Symbol).ConfigureAwait(false);
-            }
 
-            foreach (var position in positionsToBeClosed.Data.Where(x => x.Quantity != 0 && x.UnrealizedPnl > 0.1M))
+            foreach (var position in positionsToBeClosed.Data.Where(x => x.Quantity != 0))
             {
+                var data1 = await _client.ExchangeData.GetKlinesAsync(position.Symbol, KlineInterval.FiveMinutes, null, null, 2).ConfigureAwait(false);
+                var previousCandle = data1.Data.First();
+
                 switch (position.Quantity)
                 {
                     case > 0:
                         {
-                            var spCost = Math.Abs(((position!.MarkPrice!.Value * position.Quantity) - 1M) / position.Quantity);
+                            var spCost = previousCandle.LowPrice; //Math.Abs(((position!.MarkPrice!.Value * position.Quantity) - .01M) / position.Quantity);
                             var getOrderDetails =
                                 await _client.Trading.GetOpenOrdersAsync(position.Symbol).ConfigureAwait(false);
                             var stopOrder = getOrderDetails.Data.FirstOrDefault(x => x.Type == FuturesOrderType.Stop);
@@ -58,7 +72,7 @@ namespace Bonsai.Services
                         }
                     case < 0:
                         {
-                            var spCost = Math.Abs(((position!.MarkPrice!.Value * Math.Abs(position.Quantity)) + 1M) / position.Quantity);
+                            var spCost = previousCandle.HighPrice;//Math.Abs(((position!.MarkPrice!.Value * Math.Abs(position.Quantity)) + .01M) / position.Quantity);
                             var getOrderDetails =
                                 await _client.Trading.GetOpenOrdersAsync(position.Symbol).ConfigureAwait(false);
                             var stopOrder = getOrderDetails.Data.FirstOrDefault(x => x.Type == FuturesOrderType.Stop);
@@ -80,7 +94,7 @@ namespace Bonsai.Services
                 }
             }
 
-            
+
         }
 
         private static double GetEmaValue(DataHistory data)

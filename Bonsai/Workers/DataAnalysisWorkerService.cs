@@ -14,19 +14,21 @@ public class DataAnalysisWorkerService : BackgroundService
         _stopLossService = stopLossService;
     }
 
-    private const int GeneralDelay = 1000 * 60;
+    private const int GeneralDelay = 1000 * 1;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-           await DoBackupAsync().ConfigureAwait(false);
-           await Task.Delay(GeneralDelay, stoppingToken);
+            await DoBackupAsync().ConfigureAwait(false);
+            await Task.Delay(GeneralDelay, stoppingToken);
         }
     }
 
     private async Task DoBackupAsync()
     {
-       await _dataAnalysisService.CreatePositionsBuy().ConfigureAwait(false);
+        await _dataAnalysisService.CreatePositionsBuy().ConfigureAwait(false);
+        await _dataAnalysisService.ClosePositions
+            ().ConfigureAwait(false);
     }
 }

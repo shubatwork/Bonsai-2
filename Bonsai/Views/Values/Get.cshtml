@@ -29,9 +29,9 @@
             <th>Total</th>
         </tr>
         <tr>
-            <td>@(Model.TotalMarginBalance * 80)</td>
+            <td>@((Model.TotalMarginBalance * 80) - 1000) </td>
             <td>@(Model.TotalUnrealizedProfit * 80)</td>
-            <td>@(Model.TotalWalletBalance * 80)</td>
+            <td>@((Model.TotalWalletBalance * 80) - 1000)</td>
         </tr>
     </table>
 
@@ -45,7 +45,7 @@
         {
             <tr>
                 <td>@x.Symbol</td>
-                <td>@(x.UnrealizedPnl * 80)</td>
+                <td>@(x.UnrealizedPnl)</td>
                 <td>@Math.Abs(x.Quantity * x.EntryPrice)</td>
             </tr>
         }

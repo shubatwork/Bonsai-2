@@ -6,13 +6,15 @@ namespace Bonsai.Workers;
 public class ProfitWorkerService : BackgroundService
 {
     private readonly IDataAnalysisService profit;
+    private readonly IStopLossService stopLoss;
 
-    public ProfitWorkerService(IDataAnalysisService profitService)
+    public ProfitWorkerService(IDataAnalysisService profitService, IStopLossService stopLossService)
     {
         profit = profitService;
+        stopLoss = stopLossService;
     }
 
-    private const int GeneralDelay = 1000;
+    private const int GeneralDelay = 1000 * 300;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -28,7 +30,7 @@ public class ProfitWorkerService : BackgroundService
 
     private async Task<bool> DoBackupAsync()
     {
-        await profit.ClosePositions().ConfigureAwait(false);
+        await stopLoss.CloseOrders().ConfigureAwait(false);
         return true;
     }
 }
