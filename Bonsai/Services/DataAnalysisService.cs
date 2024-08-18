@@ -44,7 +44,7 @@ namespace Bonsai.Services
                     foreach (var x in list1.Where(x => x.Symbol.ToLower().Contains("usdt")))
                     {
                         {
-                            if (!positionsAvailableData.Data.Any(y => y.Symbol.ToLower().Equals(x!.Symbol.ToLower()) && y.Quantity > 0))
+                            if (!positionsAvailableData.Data.Any(y => y.Symbol.ToLower().Equals(x!.Symbol.ToLower()) && y.Quantity != 0))
                             {
                                 var data1 = await _client.ExchangeData.GetKlinesAsync(x.Symbol, KlineInterval.OneHour, null, null, 2).ConfigureAwait(false);
                                 var markPrice = await _client.ExchangeData.GetMarkPriceAsync(x!.Symbol).ConfigureAwait(false);
@@ -68,27 +68,27 @@ namespace Bonsai.Services
                                     }
                             }
 
-                            //if (!positionsAvailableData.Data.Any(y => y.Symbol.ToLower().Equals(x!.Symbol.ToLower()) && y.Quantity < 0))
-                            //{
-                            //    var data1 = await _client.ExchangeData.GetKlinesAsync(x.Symbol, KlineInterval.OneHour, null, null, 2).ConfigureAwait(false);
-                            //    var markPrice = await _client.ExchangeData.GetMarkPriceAsync(x!.Symbol).ConfigureAwait(false);
+                            if (!positionsAvailableData.Data.Any(y => y.Symbol.ToLower().Equals(x!.Symbol.ToLower()) && y.Quantity != 0))
+                            {
+                                var data1 = await _client.ExchangeData.GetKlinesAsync(x.Symbol, KlineInterval.OneHour, null, null, 2).ConfigureAwait(false);
+                                var markPrice = await _client.ExchangeData.GetMarkPriceAsync(x!.Symbol).ConfigureAwait(false);
 
-                            //    if (data1.Data.First().Volume > 0)
+                                if (data1.Data.First().Volume > 0)
 
-                            //        if (data1.Data.FirstOrDefault().LowPrice > markPrice.Data.MarkPrice)
-                            //        {
-                            //            var response = await CreatePosition(new SymbolData
-                            //            {
-                            //                Mode = CommonOrderSide.Buy,
-                            //                CurrentPrice = markPrice.Data.MarkPrice,
-                            //                Symbol = x!.Symbol,
-                            //            }, 10m, PositionSide.Long).ConfigureAwait(false);
-                            //            if (response)
-                            //            {
-                            //                break;
-                            //            }
-                            //        }
-                            //}
+                                    if (data1.Data.FirstOrDefault().LowPrice > markPrice.Data.MarkPrice)
+                                    {
+                                        var response = await CreatePosition(new SymbolData
+                                        {
+                                            Mode = CommonOrderSide.Buy,
+                                            CurrentPrice = markPrice.Data.MarkPrice,
+                                            Symbol = x!.Symbol,
+                                        }, 10m, PositionSide.Long).ConfigureAwait(false);
+                                        if (response)
+                                        {
+                                            break;
+                                        }
+                                    }
+                            }
 
                         }
                     }
