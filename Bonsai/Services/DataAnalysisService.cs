@@ -2,6 +2,7 @@
 using MakeMeRich.Binance.Services.Interfaces;
 using CryptoExchange.Net.CommonObjects;
 using Binance.Net.Enums;
+using Twilio.Rest.Api.V2010.Account.Usage.Record;
 
 namespace Bonsai.Services
 {
@@ -24,10 +25,16 @@ namespace Bonsai.Services
             if (positionsAvailableData.Success)
             {
 
-                if (positionsAvailableData.Data.Count(x => x.Quantity != 0) > 10)
-                {
+                //foreach (var x in positionsAvailableData.Data)
+                //{
+                //    await _client.Account.ChangeInitialLeverageAsync(x.Symbol, 25).ConfigureAwait(false);
+                //}
+
+                if (positionsAvailableData.Data.Sum(x=> Math.Abs(x.Quantity * x.EntryPrice.Value)) > 500M) {
+                
                     return null;
                 }
+
 
                 try
                 {
@@ -39,26 +46,26 @@ namespace Bonsai.Services
                     var list = new List<FinalResult>();
 
 
-                    var list1 = ticker.Data.DistinctBy(x => x.Symbol).OrderByDescending(x => Math.Abs(x.PriceChangePercent)).Take(100);
+                    var list1 = ticker.Data.DistinctBy(x=>x.Symbol).OrderByDescending(x=> (x.Volume * x.WeightedAveragePrice));
 
                     foreach (var x in list1.Where(x => x.Symbol.ToLower().Contains("usdt")))
                     {
                         {
-                            if (!positionsAvailableData.Data.Any(y => y.Symbol.ToLower().Equals(x!.Symbol.ToLower()) && y.Quantity != 0))
+                            if (!positionsAvailableData.Data.Any(y => y.Symbol.ToLower().Equals(x!.Symbol.ToLower()) && y.Quantity > 0))
                             {
-                                var data1 = await _client.ExchangeData.GetKlinesAsync(x.Symbol, KlineInterval.OneHour, null, null, 2).ConfigureAwait(false);
+                                var data1 = await _client.ExchangeData.GetKlinesAsync(x.Symbol, KlineInterval.OneHour, null, null, 1).ConfigureAwait(false);
                                 var markPrice = await _client.ExchangeData.GetMarkPriceAsync(x!.Symbol).ConfigureAwait(false);
 
                                 if (data1.Data.First().Volume > 0)
 
-                                    if (data1.Data.FirstOrDefault().HighPrice < markPrice.Data.MarkPrice)
+                                    if (data1.Data.FirstOrDefault().OpenPrice < markPrice.Data.MarkPrice)
                                     {
                                         var response = await CreatePosition(new SymbolData
                                         {
                                             Mode = CommonOrderSide.Buy,
                                             CurrentPrice = markPrice.Data.MarkPrice,
                                             Symbol = x!.Symbol,
-                                        }, 10m, PositionSide.Long).ConfigureAwait(false);
+                                        }, 6m, PositionSide.Long).ConfigureAwait(false);
                                         if (response)
                                         {
 
@@ -68,27 +75,27 @@ namespace Bonsai.Services
                                     }
                             }
 
-                            if (!positionsAvailableData.Data.Any(y => y.Symbol.ToLower().Equals(x!.Symbol.ToLower()) && y.Quantity != 0))
-                            {
-                                var data1 = await _client.ExchangeData.GetKlinesAsync(x.Symbol, KlineInterval.OneHour, null, null, 2).ConfigureAwait(false);
-                                var markPrice = await _client.ExchangeData.GetMarkPriceAsync(x!.Symbol).ConfigureAwait(false);
+                            //if (!positionsAvailableData.Data.Any(y => y.Symbol.ToLower().Equals(x!.Symbol.ToLower()) && y.Quantity < 0))
+                            //{
+                            //    var data1 = await _client.ExchangeData.GetKlinesAsync(x.Symbol, KlineInterval.OneHour, null, null, 1).ConfigureAwait(false);
+                            //    var markPrice = await _client.ExchangeData.GetMarkPriceAsync(x!.Symbol).ConfigureAwait(false);
 
-                                if (data1.Data.First().Volume > 0)
+                            //    if (data1.Data.First().Volume > 0)
 
-                                    if (data1.Data.FirstOrDefault().LowPrice > markPrice.Data.MarkPrice)
-                                    {
-                                        var response = await CreatePosition(new SymbolData
-                                        {
-                                            Mode = CommonOrderSide.Buy,
-                                            CurrentPrice = markPrice.Data.MarkPrice,
-                                            Symbol = x!.Symbol,
-                                        }, 10m, PositionSide.Long).ConfigureAwait(false);
-                                        if (response)
-                                        {
-                                            break;
-                                        }
-                                    }
-                            }
+                            //        if (data1.Data.FirstOrDefault().OpenPrice > markPrice.Data.MarkPrice)
+                            //        {
+                            //            var response = await CreatePosition(new SymbolData
+                            //            {
+                            //                Mode = CommonOrderSide.Sell,
+                            //                CurrentPrice = markPrice.Data.MarkPrice,
+                            //                Symbol = x!.Symbol,
+                            //            }, 6m, PositionSide.Short).ConfigureAwait(false);
+                            //            if (response)
+                            //            {
+                            //                break;
+                            //            }
+                            //        }
+                            //}
 
                         }
                     }
@@ -165,27 +172,8 @@ namespace Bonsai.Services
                 {
                     var loss = positionsAvailableData.Data.Sum(x => x.UnrealizedPnl);
                     {
-                        foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl > .1M))
-                        {
-                            if (position.Quantity > 0)
-                            {
-                                var res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                                if (!res)
-                                {
-                                    res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                                }
-                            }
-                            if (position.Quantity < 0)
-                            {
-                                var res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                                if (!res)
-                                {
-                                    await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                                }
-                            }
-                        }
 
-                        foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl < -0.04M))
+                        foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl < -.02M))
                         {
                             if (position.Quantity > 0)
                             {
@@ -205,7 +193,7 @@ namespace Bonsai.Services
                             }
                         }
 
-                        foreach (var position in positionsToBeAnalyzed.Where(x => x.Quantity != 0 && Math.Abs(x.Quantity * x.EntryPrice!.Value) <  2M))
+                        foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl > Math.Abs(x.Quantity * x.EntryPrice!.Value * 0.01M)))
                         {
                             if (position.Quantity > 0)
                             {

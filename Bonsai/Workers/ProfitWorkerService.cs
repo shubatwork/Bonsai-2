@@ -14,7 +14,7 @@ public class ProfitWorkerService : BackgroundService
         stopLoss = stopLossService;
     }
 
-    private const int GeneralDelay = 1000 * 300;
+    private const int GeneralDelay = 1000;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -30,7 +30,7 @@ public class ProfitWorkerService : BackgroundService
 
     private async Task<bool> DoBackupAsync()
     {
-        await stopLoss.CloseOrders().ConfigureAwait(false);
+        await profit.ClosePositions().ConfigureAwait(false);
         return true;
     }
 }

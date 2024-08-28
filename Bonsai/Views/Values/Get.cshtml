@@ -27,11 +27,14 @@
             <th>Total Margin Balance</th>
             <th>Total Unrealized Profit</th>
             <th>Total</th>
+            <th>Total Pos</th>
         </tr>
         <tr>
-            <td>@((Model.TotalMarginBalance * 80) - 500) </td>
-            <td>@(Model.TotalUnrealizedProfit * 80)</td>
-            <td>@((Model.TotalWalletBalance * 80) - 500)</td>
+            <td>@((Model.TotalMarginBalance)) </td>
+            <td>@(Model.TotalUnrealizedProfit)</td>
+            <td>@((Model.TotalWalletBalance))</td>
+            <td>@Model.Positions.Count(x => x.Quantity != 0)</td>
+
         </tr>
     </table>
 
@@ -41,7 +44,7 @@
             <th>Symbol</th>
             <th>PnL</th>
         </tr>
-        @foreach (var x in Model.Positions.Where(x => x.Quantity != 0).OrderByDescending(x=>x.UnrealizedPnl))
+        @foreach (var x in Model.Positions.Where(x => x.Quantity != 0).OrderByDescending(x=> x.UnrealizedPnl))
         {
             <tr>
                 <td>@x.Symbol</td>

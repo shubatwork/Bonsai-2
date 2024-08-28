@@ -19,7 +19,7 @@ namespace Bonsai
         [HttpGet]
         public async Task<IActionResult> Get()
         {
-            var account = await _client.Account.GetAccountInfoAsync().ConfigureAwait(false);
+            var account = await _client.Account.GetAccountInfoV2Async().ConfigureAwait(false);
             //return Ok(account);
             return View(account.Data);
         }
