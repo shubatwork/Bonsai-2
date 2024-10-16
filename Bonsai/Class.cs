@@ -19,8 +19,7 @@ namespace Bonsai
     public class FinalResult
     {
         public decimal PercentRise { get; set; }
-        public Position? Position { get; set; }
-        public decimal? MarkPrice { get; set; }
+        public string? Symbol { get; set; }
     }
 
     public class DailyResult
