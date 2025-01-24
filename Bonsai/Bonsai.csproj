@@ -11,13 +11,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Binance.Net" Version="10.2.1" />
+    <PackageReference Include="Kucoin.Net" Version="5.23.5" />
     <PackageReference Include="Serilog.Sinks.File" Version="5.0.1-dev-00972" />
     <PackageReference Include="Twilio" Version="7.2.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TechnicalAnalysis.Business\TechnicalAnalysis.Business.csproj" />
+    <Folder Include="Views\" />
   </ItemGroup>
 
 </Project>

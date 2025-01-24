@@ -1,354 +1,76 @@
-﻿using Binance.Net.Interfaces.Clients.UsdFuturesApi;
-using MakeMeRich.Binance.Services.Interfaces;
-using CryptoExchange.Net.CommonObjects;
-using Binance.Net.Enums;
-using Twilio.Rest.Api.V2010.Account.Usage.Record;
-using TechnicalAnalysis.Business;
-using TechnicalAnalysis;
-using System.Collections.Generic;
+﻿using Kucoin.Net.Clients;
+using Kucoin.Net.Enums;
 
 namespace Bonsai.Services
 {
     public class DataAnalysisService : IDataAnalysisService
     {
-        private readonly IBinanceRestClientUsdFuturesApi _client;
-        private readonly IDataHistoryRepository _dataHistoryRepository;
-
-        public DataAnalysisService(IDataHistoryRepository dataHistoryRepository)
+        public DataAnalysisService()
         {
-            _client = ClientDetails.GetClient();
-            _dataHistoryRepository = dataHistoryRepository;
         }
 
 
-        public async Task<string?> CreatePositionsBuy()
+        public async Task ClosePositions()
         {
-
-            var positionsAvailableData =
-               await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
-
-
-            if (positionsAvailableData.Success)
+            bool canBuy = true;
+            int profit = 0;
+            int loss = 0;
+            var mode = OrderSide.Buy;
+            while (true)
             {
-                try
+                Console.WriteLine("Start /n");
+                var restClient = new KucoinRestClient();
+                restClient.SetApiCredentials(new Kucoin.Net.Objects.KucoinApiCredentials
+                    ("6792c43bc0a1b1000135cb65", "25ab9c72-17e6-4951-b7a8-6e2fce9c3026", "test1234"));
+
+                var symbolList = await restClient.FuturesApi.Account.GetPositionsAsync();
+                foreach (var symbol in symbolList.Data.Where(x => x.UnrealizedPnl > .003M))
                 {
-                    var tickerPrices = await _client.ExchangeData.GetTickersAsync().ConfigureAwait(false);
-                    var list1 = tickerPrices.Data.OrderBy(x => x.Symbol).DistinctBy(x => x.Symbol);
-
-                    foreach (var x in list1.Where(x => x.Symbol.ToLower().Contains("usdt") && !x.Symbol.ToLower().Contains("btc") && !x.Symbol.ToLower().Contains("usdc") && !x.Symbol.ToLower().Contains("yfi")))
+                    if (symbol != null && symbol.IsOpen)
                     {
-                        if (!positionsAvailableData.Data.Any(z => z.Symbol == x.Symbol && z.Quantity < 0))
+                        var z = await restClient.FuturesApi.Trading.PlaceOrderAsync
+                        (symbol.Symbol, Kucoin.Net.Enums.OrderSide.Buy, Kucoin.Net.Enums.NewOrderType.Market, 0, closeOrder: true, marginMode: Kucoin.Net.Enums.FuturesMarginMode.Cross);
+                        Console.WriteLine("Closed " + symbol.Symbol + " - " + symbol.UnrealizedPnl);
+                        if (z.Success && symbol.UnrealizedPnl > 0)
                         {
-                            var markPrice = await _client.ExchangeData.GetMarkPriceAsync(x!.Symbol).ConfigureAwait(false);
-                            var data = await _client.ExchangeData.GetKlinesAsync(x.Symbol, KlineInterval.FiveMinutes, null, null, 1).ConfigureAwait(false);
-                            var data1 = data.Data.FirstOrDefault();
-                            if (data1!.OpenPrice > markPrice.Data.MarkPrice)
-                            {
-                                var response = await CreatePosition(new SymbolData
-                                {
-                                    Mode = CommonOrderSide.Sell,
-                                    CurrentPrice = markPrice.Data.MarkPrice,
-                                    Symbol = x!.Symbol,
-                                }, 6m, PositionSide.Short).ConfigureAwait(false);
-                                if (response)
-                                {
-                                    break;
-                                }
-                            }
+                            profit++;
                         }
-                    }
-
-
-                    var list2 = tickerPrices.Data.OrderByDescending(x => x.Symbol).DistinctBy(x => x.Symbol);
-                    foreach (var x in list2.Where(x => x.Symbol.ToLower().Contains("usdt") && !x.Symbol.ToLower().Contains("btc") && !x.Symbol.ToLower().Contains("usdc") && !x.Symbol.ToLower().Contains("yfi")))
-                    {
-                        if (!positionsAvailableData.Data.Any(z => z.Symbol == x.Symbol && z.Quantity > 0))
+                        if (z.Success && symbol.UnrealizedPnl < 0)
                         {
-                            var markPrice = await _client.ExchangeData.GetMarkPriceAsync(x!.Symbol).ConfigureAwait(false);
-                            var data = await _client.ExchangeData.GetKlinesAsync(x.Symbol, KlineInterval.FiveMinutes, null, null, 1).ConfigureAwait(false);
-                            var data1 = data.Data.FirstOrDefault();
-
-                            if (data1!.OpenPrice < markPrice.Data.MarkPrice)
-                            {
-                                var response = await CreatePosition(new SymbolData
-                                {
-                                    Mode = CommonOrderSide.Buy,
-                                    CurrentPrice = markPrice.Data.MarkPrice,
-                                    Symbol = x!.Symbol,
-                                }, 6m, PositionSide.Long).ConfigureAwait(false);
-                                if (response)
-                                {
-                                    break;
-
-                                }
-                            }
-
-                            return null;
+                            loss++;
                         }
+                        continue;
                     }
                 }
-                catch (Exception)
+                canBuy = profit >= loss;
+                mode = profit >= loss ? mode : (mode == OrderSide.Buy) ? OrderSide.Sell : OrderSide.Buy;
+                if (canBuy)
                 {
-                    return null;
-                }
-            }
-
-            return null;
-        }
-
-
-        private static double GetRsiValue(DataHistory data)
-        {
-            data.ComputeRsi();
-            RsiResult dataAIndicator = (RsiResult)data.Indicators[Indicator.Rsi];
-            var currentRsi = dataAIndicator.Real[dataAIndicator.NBElement - 1];
-            return currentRsi;
-        }
-
-
-        private async Task<bool> CreatePosition(SymbolData position, decimal quantityUsdt, PositionSide positionSide)
-        {
-            var quantity = Math.Round(decimal.Divide(quantityUsdt, position.CurrentPrice), 6);
-
-            var result = await _client.Trading.PlaceOrderAsync(
-                position.Symbol, (OrderSide)position.Mode!.Value, FuturesOrderType.Market, quantity, null, positionSide, null, null);
-
-            if (!result.Success)
-            {
-                quantity = Math.Round(decimal.Divide(quantityUsdt, position.CurrentPrice), 5);
-                result = await _client.Trading.PlaceOrderAsync(
-                position.Symbol, (OrderSide)position.Mode!.Value, FuturesOrderType.Market, quantity, null, positionSide, null, null);
-            }
-            if (!result.Success)
-            {
-                quantity = Math.Round(decimal.Divide(quantityUsdt, position.CurrentPrice), 4);
-                result = await _client.Trading.PlaceOrderAsync(
-                    position.Symbol, (OrderSide)position.Mode!.Value, FuturesOrderType.Market, quantity, null, positionSide, null, null);
-            }
-            if (!result.Success)
-            {
-                quantity = Math.Round(decimal.Divide(quantityUsdt, position.CurrentPrice), 3);
-                result = await _client.Trading.PlaceOrderAsync(position.Symbol, (OrderSide)position.Mode!.Value, FuturesOrderType.Market, quantity, null, positionSide, null, null);
-            }
-            if (!result.Success)
-            {
-                quantity = Math.Round(decimal.Divide(quantityUsdt, position.CurrentPrice), 2);
-                result = await _client.Trading.PlaceOrderAsync(position.Symbol, (OrderSide)position.Mode!.Value, FuturesOrderType.Market, quantity, null, positionSide, null, null);
-            }
-            if (!result.Success)
-            {
-                quantity = Math.Round(decimal.Divide(quantityUsdt, position.CurrentPrice), 1);
-                result = await _client.Trading.PlaceOrderAsync(position.Symbol, (OrderSide)position.Mode!.Value, FuturesOrderType.Market, quantity, null, positionSide, null, null);
-            }
-            if (!result.Success)
-            {
-                quantity = Math.Round(decimal.Divide(quantityUsdt, position.CurrentPrice));
-                result = await _client.Trading.PlaceOrderAsync(position.Symbol, (OrderSide)position.Mode!.Value, FuturesOrderType.Market, quantity, null, positionSide, null, null);
-            }
-
-            return result.Success;
-        }
-
-        #region Close Position
-
-        public async Task<Position?> ClosePositions()
-        {
-            var positionsAvailableData =
-               await _client.CommonFuturesClient.GetPositionsAsync().ConfigureAwait(false);
-
-
-            if (positionsAvailableData.Success)
-            {
-                var positionsToBeAnalyzed = positionsAvailableData.Data
-               .Where(x =>
-                   x != null
-                   && x.Quantity != 0).ToList();
-                {
+                    var tickerList = await restClient.FuturesApi.ExchangeData.GetTickersAsync();
                     {
-                        //foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl < -.02M))
-                        //{
-                        //    if (position.Quantity > 0)
-                        //    {
-                        //        var res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity , position.MarkPrice).ConfigureAwait(false);
-                        //        if (!res)
-                        //        {
-                        //            res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                        //            if (!res)
-                        //            {
-                        //                res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-
-                        //            }
-                        //        }
-                        //    }
-                        //    if (position.Quantity < 0)
-                        //    {
-                        //        var res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity * .5M, position.MarkPrice).ConfigureAwait(false);
-                        //        if (!res)
-                        //        {
-                        //            res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity * .25M, position.MarkPrice).ConfigureAwait(false);
-                        //            if (!res)
-                        //            {
-                        //                res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                        //            }
-                        //        }
-                        //    }
-                        //}
-
-                        foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl > 0.02M))
+                        var random = new Random();
+                        int randomIndex = random.Next(tickerList.Data.Count());
+                        var randomSymbol = tickerList.Data.ElementAt(randomIndex).Symbol;
                         {
-                            if (position.Quantity > 0)
+                            var getPositions = await restClient.FuturesApi.Account.GetPositionAsync(randomSymbol);
+                            if (getPositions != null && getPositions.Data.IsOpen)
                             {
-                                var res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                                if (!res)
-                                {
-                                    res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                                    if (!res)
-                                    {
-                                        res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
+                                continue;
+                            }
 
-                                    }
-                                }
-                            }
-                            if (position.Quantity < 0)
-                            {
-                                var res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                                if (!res)
-                                {
-                                    res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                                    if (!res)
-                                    {
-                                        res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                                    }
-                                }
-                            }
-                        }
+                            var result = await restClient.FuturesApi.Trading.PlaceOrderAsync
+                                (randomSymbol, mode, Kucoin.Net.Enums.NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: Kucoin.Net.Enums.FuturesMarginMode.Cross);
 
+                            if (result.Success)
+                            {
+                                Console.WriteLine(randomSymbol);
+                            }
 
-                        foreach (var position in positionsToBeAnalyzed.Where(x => x.UnrealizedPnl < -.02M))
-                        {
-                            if (position.Quantity > 0)
-                            {
-                                var res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity * 0.01M , position.MarkPrice).ConfigureAwait(false);
-                                if (!res)
-                                {
-                                    res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity * 0.1M, position.MarkPrice).ConfigureAwait(false);
-                                    if (!res)
-                                    {
-                                        res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Sell, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-
-                                    }
-                                }
-                            }
-                            if (position.Quantity < 0)
-                            {
-                                var res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity * 0.01M, position.MarkPrice).ConfigureAwait(false);
-                                if (!res)
-                                {
-                                    res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity * 0.1M, position.MarkPrice).ConfigureAwait(false);
-                                    if (!res)
-                                    {
-                                        res = await CreateOrdersLogic(position.Symbol, CommonOrderSide.Buy, position.Side, position.Quantity, position.MarkPrice).ConfigureAwait(false);
-                                    }
-                                }
-                            }
-                        }
-
-                        foreach (var position in positionsToBeAnalyzed.Where(x => x.Quantity != 0 && x.UnrealizedPnl > Math.Abs(x.Quantity * x.EntryPrice!.Value * 0.01M)))
-                        {
-                            if (position.Quantity > 0)
-                            {
-                                var markPrice = await _client.ExchangeData.GetMarkPriceAsync(position!.Symbol).ConfigureAwait(false);
-                                var data = await _client.ExchangeData.GetKlinesAsync(position.Symbol, KlineInterval.FiveMinutes, null, null, 1).ConfigureAwait(false);
-                                var data1 = data.Data.FirstOrDefault();
-                                if (data1!.OpenPrice < markPrice.Data.MarkPrice)
-                                {
-                                    var response = await CreatePosition(new SymbolData
-                                    {
-                                        Mode = CommonOrderSide.Buy,
-                                        CurrentPrice = markPrice.Data.MarkPrice,
-                                        Symbol = position.Symbol,
-                                    }, 6m, PositionSide.Long).ConfigureAwait(false);
-                                    if (response)
-                                    {
-                                    }
-                                }
-                            }
-                            if (position.Quantity < 0)
-                            {
-                                var markPrice = await _client.ExchangeData.GetMarkPriceAsync(position!.Symbol).ConfigureAwait(false);
-                                var data = await _client.ExchangeData.GetKlinesAsync(position.Symbol, KlineInterval.OneHour, null, null, 1).ConfigureAwait(false);
-                                var data1 = data.Data.FirstOrDefault();
-                                if (data1!.OpenPrice > markPrice.Data.MarkPrice)
-                                {
-                                    var response = await CreatePosition(new SymbolData
-                                    {
-                                        Mode = CommonOrderSide.Sell,
-                                        CurrentPrice = markPrice.Data.MarkPrice,
-                                        Symbol = position.Symbol,
-                                    }, 6m, PositionSide.Short).ConfigureAwait(false);
-                                    if (response)
-                                    {
-                                    }
-                                }
-                            }
                         }
                     }
                 }
             }
-            return null;
         }
 
-        public async Task<bool> CreateOrdersLogic(string symbol, CommonOrderSide orderSide, CommonPositionSide? positionSide, decimal quantity, decimal? markPrice)
-        {
-            quantity = Math.Abs(quantity);
-            quantity = Math.Round(quantity, 6);
-            var positionSideCurrent = positionSide == CommonPositionSide.Short ? PositionSide.Short : PositionSide.Long;
-            var result = await _client.Trading.PlaceOrderAsync(symbol, (OrderSide)orderSide, FuturesOrderType.Market, quantity, null, positionSideCurrent, null, null, null);
-
-            if (!result.Success)
-            {
-                quantity = Math.Round(quantity, 5);
-                result = await _client.Trading.PlaceOrderAsync(symbol, (OrderSide)orderSide, FuturesOrderType.Market, quantity, null, positionSideCurrent, null, null);
-            }
-            if (!result.Success)
-            {
-                quantity = Math.Round(quantity, 4);
-                result = await _client.Trading.PlaceOrderAsync(symbol, (OrderSide)orderSide, FuturesOrderType.Market, quantity, null, positionSideCurrent, null, null);
-            }
-            if (!result.Success)
-            {
-                quantity = Math.Round(quantity, 3);
-                result = await _client.Trading.PlaceOrderAsync(symbol, (OrderSide)orderSide, FuturesOrderType.Market, quantity, null, positionSideCurrent, null, null);
-            }
-            if (!result.Success)
-            {
-                quantity = Math.Round(quantity, 2);
-                result = await _client.Trading.PlaceOrderAsync(symbol, (OrderSide)orderSide, FuturesOrderType.Market, quantity, null, positionSideCurrent, null, null);
-            }
-            if (!result.Success)
-            {
-                quantity = Math.Round(quantity, 1);
-                result = await _client.Trading.PlaceOrderAsync(symbol, (OrderSide)orderSide, FuturesOrderType.Market, quantity, null, positionSideCurrent, null, null);
-            }
-            if (!result.Success)
-            {
-                quantity = Math.Round(quantity, 0);
-                result = await _client.Trading.PlaceOrderAsync(symbol, (OrderSide)orderSide, FuturesOrderType.Market, quantity, null, positionSideCurrent, null, null);
-            }
-
-            if (!result.Success)
-            {
-                Console.WriteLine(result.Error + symbol);
-            }
-            else
-            {
-                Console.WriteLine("Closed : " + symbol + "     " + orderSide);
-            }
-
-            return result.Success;
-        }
-
-
-        #endregion
     }
 }

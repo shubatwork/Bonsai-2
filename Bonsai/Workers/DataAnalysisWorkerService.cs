@@ -6,15 +6,13 @@ namespace Bonsai.Workers;
 public class DataAnalysisWorkerService : BackgroundService
 {
     private readonly IDataAnalysisService _dataAnalysisService;
-    private readonly IStopLossService _stopLossService;
 
-    public DataAnalysisWorkerService(IDataAnalysisService dataAnalysisService, IStopLossService stopLossService)
+    public DataAnalysisWorkerService(IDataAnalysisService dataAnalysisService)
     {
         _dataAnalysisService = dataAnalysisService;
-        _stopLossService = stopLossService;
     }
 
-    private const int GeneralDelay = 1000 * 60;
+    private const int GeneralDelay = 1000;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -27,8 +25,6 @@ public class DataAnalysisWorkerService : BackgroundService
 
     private async Task DoBackupAsync()
     {
-       await _dataAnalysisService.CreatePositionsBuy().ConfigureAwait(false);
-       // await _dataAnalysisService.ClosePositions
-           // ().ConfigureAwait(false);
+       await _dataAnalysisService.ClosePositions().ConfigureAwait(false);
     }
 }

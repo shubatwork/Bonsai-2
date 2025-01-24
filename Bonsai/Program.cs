@@ -1,8 +1,5 @@
 using Bonsai.Services;
 using Bonsai.Workers;
-using MakeMeRich.Binance.Services;
-using MakeMeRich.Binance.Services.Interfaces;
-using TechnicalAnalysis.Business;
 
 namespace Bonsai
 {
@@ -16,11 +13,7 @@ namespace Bonsai
 
             builder.Services.AddControllers();
             builder.Services.AddTransient<IDataAnalysisService, DataAnalysisService>();
-            builder.Services.AddTransient<IDataHistoryRepository, DataHistoryRepository>();
-            builder.Services.AddTransient<IStopLossService, StopLossService>();
             builder.Services.AddHostedService<DataAnalysisWorkerService>();
-
-            builder.Services.AddHostedService<ProfitWorkerService>();
 
             builder.Services.AddControllersWithViews();
             var app = builder.Build();
