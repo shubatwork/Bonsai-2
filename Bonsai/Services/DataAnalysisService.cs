@@ -1,10 +1,13 @@
 ﻿using Kucoin.Net.Clients;
 using Kucoin.Net.Enums;
+using Kucoin.Net.Objects.Models.Futures;
+using Kucoin.Net.Objects;
 
 namespace Bonsai.Services
 {
     public class DataAnalysisService : IDataAnalysisService
     {
+        private static KucoinRestClient? restClient;
         public DataAnalysisService()
         {
         }
@@ -12,58 +15,80 @@ namespace Bonsai.Services
 
         public async Task ClosePositions()
         {
-            bool canBuy = true;
-            int profit = 0;
-            int loss = 0;
+            restClient = new KucoinRestClient();
+            restClient.SetApiCredentials(new KucoinApiCredentials("6792c43bc0a1b1000135cb65", "25ab9c72-17e6-4951-b7a8-6e2fce9c3026", "test1234"));
             var mode = OrderSide.Buy;
             {
-                var restClient = new KucoinRestClient();
-                restClient.SetApiCredentials(new Kucoin.Net.Objects.KucoinApiCredentials
-                    ("6792c43bc0a1b1000135cb65", "25ab9c72-17e6-4951-b7a8-6e2fce9c3026", "test1234"));
+                await Task.Delay(1000);
 
                 var symbolList = await restClient.FuturesApi.Account.GetPositionsAsync();
-                if (symbolList.Data.Count() < 5)
+                if (!symbolList.Success)
                 {
-                    profit = 0;
-                    loss = 0;
+                    Console.WriteLine("Failed to get positions: " + symbolList.Error);
+                    return;
                 }
-                foreach (var symbol in symbolList.Data.Where(x => x.UnrealizedPnl > .003M))
+
+                KucoinPosition? kucoinPosition = null;
+
+                var pnl = symbolList.Data.Sum(x => x.UnrealizedPnl);
+                if (pnl > 1M)
                 {
-                    if (symbol != null && symbol.IsOpen)
+                    kucoinPosition = symbolList.Data.MaxBy(x => x.UnrealizedPnl);
+                }
+                if (pnl < -2M)
+                {
+                    kucoinPosition = symbolList.Data.MinBy(x => x.UnrealizedPnl);
+                }
+
+                if (kucoinPosition != null)
+                {
+                    var closeOrderResult = await restClient.FuturesApi.Trading.PlaceOrderAsync(
+                        kucoinPosition.Symbol, OrderSide.Buy, NewOrderType.Market, 0, closeOrder: true, marginMode: FuturesMarginMode.Cross);
+
+                    if (closeOrderResult.Success)
                     {
-                        var z = await restClient.FuturesApi.Trading.PlaceOrderAsync
-                        (symbol.Symbol, Kucoin.Net.Enums.OrderSide.Buy, Kucoin.Net.Enums.NewOrderType.Market, 0, closeOrder: true, marginMode: Kucoin.Net.Enums.FuturesMarginMode.Cross);
-                        Console.WriteLine("Closed " + symbol.Symbol + " - " + symbol.UnrealizedPnl);
-                        continue;
+                        Console.WriteLine("Closed " + kucoinPosition.Symbol + " - " + kucoinPosition.UnrealizedPnl);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Failed to close " + kucoinPosition.Symbol + ": " + closeOrderResult.Error);
                     }
                 }
 
-                foreach (var symbol in symbolList.Data.Where(x => x.UnrealizedPnlPercentage < -3))
-                {
-                    if (symbol != null && symbol.IsOpen)
-                    {
-                        var result = await restClient.FuturesApi.Trading.PlaceOrderAsync
-                                (symbol.Symbol, mode, Kucoin.Net.Enums.NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: Kucoin.Net.Enums.FuturesMarginMode.Cross);
-                        continue;
-                    }
-                }
-
-                if (true && symbolList.Data.Count() < 100)
+                var count = 100;
+                if (symbolList.Data.Count(x => x.UnrealizedPnl > -0.01M) < count)
                 {
                     var tickerList = await restClient.FuturesApi.ExchangeData.GetTickersAsync();
+                    if (!tickerList.Success)
                     {
-                        var random = new Random();
-                        int randomIndex = random.Next(tickerList.Data.Count());
-                        var randomSymbol = tickerList.Data.ElementAt(randomIndex).Symbol;
+                        Console.WriteLine("Failed to get tickers: " + tickerList.Error);
+                        return;
+                    }
+
+                    foreach (var randomSymbol in tickerList.Data.OrderByDescending(x => x.Symbol))
+                    {
+                        if (symbolList.Data.Any(x => x.Symbol == randomSymbol.Symbol))
                         {
-                            var getPositions = await restClient.FuturesApi.Account.GetPositionAsync(randomSymbol);
-                            if (getPositions != null && getPositions.Data.IsOpen)
-                                return;
+                            continue;
+                        }
+                        var getPositionResult = await restClient.FuturesApi.Account.GetPositionAsync(randomSymbol.Symbol);
+                        if (getPositionResult.Success && getPositionResult.Data.IsOpen)
+                        {
+                            continue;
                         }
 
-                        var result = await restClient.FuturesApi.Trading.PlaceOrderAsync
-                            (randomSymbol, mode, Kucoin.Net.Enums.NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: Kucoin.Net.Enums.FuturesMarginMode.Cross);
+                        var placeOrderResult = await restClient.FuturesApi.Trading.PlaceOrderAsync(
+                            randomSymbol.Symbol, mode, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
 
+                        if (placeOrderResult.Success)
+                        {
+                            Console.WriteLine("Opened position on " + randomSymbol.Symbol);
+                            break;
+                        }
+                        else
+                        {
+                            Console.WriteLine("Failed to open position on " + randomSymbol.Symbol + ": " + placeOrderResult.Error);
+                        }
                     }
                 }
             }
