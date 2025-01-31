@@ -75,7 +75,6 @@ namespace Bonsai.Services
         {
             var credentials = GetApiCredentials("API_KEY_2", "API_SECRET_2", "API_PASSPHRASE_2");
             var accountInfo = await GetAccountOverviewAsync(credentials);
-            Console.WriteLine($"{accountInfo.MarginBalance} - {accountInfo.UnrealizedPnl} - {accountInfo.RiskRatio}");
 
             bool canCreate = accountInfo.RiskRatio < .20M;
             bool canIncrease = accountInfo.RiskRatio < .30M;
@@ -99,15 +98,6 @@ namespace Bonsai.Services
             {
                 var closeOrderResult = await restClient!.FuturesApi.Trading.PlaceOrderAsync(
                     kucoinPosition.Symbol, OrderSide.Buy, NewOrderType.Market, 0, closeOrder: true, marginMode: FuturesMarginMode.Cross);
-
-                if (closeOrderResult.Success)
-                {
-                    Console.WriteLine($"Closed {kucoinPosition.Symbol} - {kucoinPosition.UnrealizedPnl}");
-                }
-                else
-                {
-                    Console.WriteLine($"Failed to close {kucoinPosition.Symbol}: {closeOrderResult.Error}");
-                }
             }
         }
 
@@ -158,7 +148,6 @@ namespace Bonsai.Services
 
                 if (placeOrderResult.Success)
                 {
-                    Console.WriteLine($"Opened position on {randomSymbol.Symbol}");
                     return;
                 }
                 else
@@ -177,12 +166,7 @@ namespace Bonsai.Services
 
                 if (placeOrderResult.Success)
                 {
-                    Console.WriteLine($"Opened position on {symbol}");
                     break;
-                }
-                else if (i == 4)
-                {
-                    Console.WriteLine($"Failed to open position on {symbol} : {placeOrderResult.Error}");
                 }
             }
         }
