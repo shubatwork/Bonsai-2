@@ -1,11 +1,12 @@
 ﻿using Bonsai.Services;
-using CryptoExchange.Net.CommonObjects;
+using Kucoin.Net.Clients;
 
 namespace Bonsai.Workers;
 
 public class DataAnalysisWorkerService : BackgroundService
 {
     private readonly IDataAnalysisService _dataAnalysisService;
+    private static KucoinRestClient? restClient;
 
     public DataAnalysisWorkerService(IDataAnalysisService dataAnalysisService)
     {
