@@ -54,15 +54,15 @@ namespace Bonsai.Services
             var credentials = GetApiCredentials("API_KEY_1", "API_SECRET_1", "API_PASSPHRASE_1");
             var accountInfo = await GetAccountOverviewAsync(credentials);
 
-            bool canCreate = accountInfo.RiskRatio < .20M;
-            bool canIncrease = accountInfo.RiskRatio < .30M;
+            bool canCreate = accountInfo.RiskRatio < .15M;
+            bool canIncrease = accountInfo.RiskRatio < .25M;
             var symbolList = await GetPositionsAsync(credentials);
             await CloseProfitablePosition(symbolList);
 
             if (canIncrease)
             {
-                await PlaceOrders(symbolList, OrderSide.Sell, .1m);
-                await PlaceOrders(symbolList, OrderSide.Buy, .1m);
+                await PlaceOrders(symbolList, OrderSide.Sell, -.1m);
+                await PlaceOrders(symbolList, OrderSide.Buy, -.1m);
             }
 
             if (canCreate)
@@ -76,14 +76,14 @@ namespace Bonsai.Services
             var credentials = GetApiCredentials("API_KEY_2", "API_SECRET_2", "API_PASSPHRASE_2");
             var accountInfo = await GetAccountOverviewAsync(credentials);
 
-            bool canCreate = accountInfo.RiskRatio < .20M;
-            bool canIncrease = accountInfo.RiskRatio < .30M;
+            bool canCreate = accountInfo.RiskRatio < .15M;
+            bool canIncrease = accountInfo.RiskRatio < .25M;
             var symbolList = await GetPositionsAsync(credentials);
             await CloseProfitablePosition(symbolList);
             if (canIncrease)
             {
-                await PlaceOrders(symbolList, OrderSide.Sell, .1m);
-                await PlaceOrders(symbolList, OrderSide.Buy, .1m);
+                await PlaceOrders(symbolList, OrderSide.Sell, -.1m);
+                await PlaceOrders(symbolList, OrderSide.Buy, -.1m);
             }
             if (canCreate)
             {
@@ -93,7 +93,7 @@ namespace Bonsai.Services
 
         private static async Task CloseProfitablePosition(IEnumerable<KucoinPosition> symbolList)
         {
-            var kucoinPosition = symbolList.Where(x => x.UnrealizedPnl > 0.01M).MaxBy(x => x.UnrealizedPnl);
+            var kucoinPosition = symbolList.Where(x => x.UnrealizedPnlPercentage > 0.002M).MaxBy(x => x.UnrealizedPnl);
             if (kucoinPosition != null)
             {
                 var closeOrderResult = await restClient!.FuturesApi.Trading.PlaceOrderAsync(
@@ -105,10 +105,14 @@ namespace Bonsai.Services
         {
             foreach (var symbol in symbolList)
             {
-                if (symbol != null && ((side == OrderSide.Sell && symbol.CurrentQuantity < 0) || (side == OrderSide.Buy && symbol.CurrentQuantity > 0)) && symbol.UnrealizedRoePercentage > roeThreshold)
+                if (symbol != null && ((side == OrderSide.Sell && symbol.CurrentQuantity < 0) || (side == OrderSide.Buy && symbol.CurrentQuantity > 0)) && symbol.UnrealizedRoePercentage < roeThreshold)
                 {
                     var placeOrderResult = await restClient!.FuturesApi.Trading.PlaceOrderAsync(
                         symbol.Symbol, side, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
+                    if(placeOrderResult.Success)
+                    {
+                        break;
+                    }
                 }
             }
         }
