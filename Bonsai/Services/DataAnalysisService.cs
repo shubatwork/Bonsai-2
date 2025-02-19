@@ -3,21 +3,106 @@ using Kucoin.Net.Enums;
 using Kucoin.Net.Objects.Models.Futures;
 using Kucoin.Net.Objects;
 using CryptoExchange.Net.CommonObjects;
+using System.Net;
+using CryptoExchange.Net.Interfaces;
 
 namespace Bonsai.Services
 {
     public class DataAnalysisService : IDataAnalysisService
     {
-        private static KucoinRestClient? restClient;
+        private static KucoinRestClient? restClientMain;
+        private static KucoinRestClient? restClientSub;
 
         public DataAnalysisService()
         {
+            restClientMain = new KucoinRestClient();
+            restClientSub = new KucoinRestClient();
         }
 
         public async Task ClosePositions()
         {
-            await CreateInMain();
-            await CreateInSub();
+            var credentials = GetApiCredentials("API_KEY_1", "API_SECRET_1", "API_PASSPHRASE_1");
+            restClientMain.SetApiCredentials(credentials);
+            var positionsList = await GetPositionsAsync(restClientMain);
+
+            var credentials2 = GetApiCredentials("API_KEY_2", "API_SECRET_2", "API_PASSPHRASE_2");
+            restClientSub.SetApiCredentials(credentials2);
+            var positionsListSub = await GetPositionsAsync(restClientSub);
+            
+            var tickerList = await restClientMain!.FuturesApi.ExchangeData.GetTickersAsync();
+
+            var result = new Dictionary<string, CommonOrderSide>();
+            foreach (var ticker in tickerList.Data)
+            {
+                var data = GetDataForSymbol(ticker.Symbol);
+                if (data.HasValue)
+                {
+                    result.Add(ticker.Symbol, data.Value);
+                }
+            }
+            foreach (var position in tickerList.Data)
+            {
+                if (result.TryGetValue(position.Symbol, out var side))
+                {
+                    if (side == CommonOrderSide.Buy && !positionsList.Any(x=>x.Symbol == position.Symbol))
+                    {
+                        await restClientMain.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
+                    }
+                    if (side == CommonOrderSide.Buy && positionsList.Any(x => x.Symbol == position.Symbol && x.UnrealizedPnlPercentage < -.01M))
+                    {
+                        await restClientMain.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
+                    }
+                    if (side == CommonOrderSide.Sell && !positionsListSub.Any(x => x.Symbol == position.Symbol))
+                    {
+                        await restClientSub.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
+                    }
+                    if (side == CommonOrderSide.Sell && positionsListSub.Any(x => x.Symbol == position.Symbol && x.UnrealizedPnlPercentage < -.01M))
+                    {
+                        await restClientSub.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
+                    }
+                }
+            }
+
+            foreach (KucoinPosition position in positionsList)
+            {
+                if (position.UnrealizedPnlPercentage > 0.01M)
+                {
+                    var closeOrderResult = await restClientMain!.FuturesApi.Trading.PlaceOrderAsync(
+                    position.Symbol, OrderSide.Buy, NewOrderType.Market, 0, closeOrder: true, marginMode: FuturesMarginMode.Cross);
+                }
+            }
+
+            foreach (KucoinPosition position in positionsListSub)
+            {
+                if (position.UnrealizedPnlPercentage > 0.01M)
+                {
+                    var closeOrderResult = await restClientSub!.FuturesApi.Trading.PlaceOrderAsync(
+                    position.Symbol, OrderSide.Buy, NewOrderType.Market, 0, closeOrder: true, marginMode: FuturesMarginMode.Cross);
+                }
+            }
+
+            Thread.Sleep(10 * 1000);
+        }
+
+        private static CommonOrderSide? GetDataForSymbol(string symbol)
+        {
+            var ticker = restClientMain!.FuturesApi.ExchangeData.GetKlinesAsync(symbol, FuturesKlineInterval.OneMinute, DateTime.UtcNow.AddHours(-2)).Result;
+            var count = ticker.Data.Count();
+            if (count > 0)
+            {
+                var ma7 = ticker.Data.Skip(count - 7).Average(x => x.ClosePrice);
+                var ma25 = ticker.Data.Skip(count - 25).Average(x => x.ClosePrice);
+
+                if (ma7 > ma25)
+                {
+                    return CommonOrderSide.Buy;
+                }
+                else if (ma7 < ma25)
+                {
+                    return CommonOrderSide.Sell;
+                }
+            }
+            return null;
         }
 
         private static KucoinApiCredentials GetApiCredentials(string apiKey, string apiSecret, string apiPassphrase)
@@ -33,181 +118,10 @@ namespace Bonsai.Services
             return new KucoinApiCredentials("", "", "");
         }
 
-        private static async Task<IEnumerable<KucoinPosition>> GetPositionsAsync(KucoinApiCredentials credentials)
+        private static async Task<IEnumerable<KucoinPosition>> GetPositionsAsync(KucoinRestClient restClient)
         {
-            restClient = new KucoinRestClient();
-            restClient.SetApiCredentials(credentials);
             var positions = await restClient.FuturesApi.Account.GetPositionsAsync();
             return positions.Data;
         }
-
-        private static async Task CreateInMain()
-        {
-            var credentials = GetApiCredentials("API_KEY_1", "API_SECRET_1", "API_PASSPHRASE_1");
-
-            var accountInfo = await GetAccountOverviewAsync(credentials);
-            if (accountInfo.RiskRatio > .2M)
-            {
-                var result = await restClient!.FuturesApi.Account.TransferToFuturesAccountAsync("USDT", 1, AccountType.Main);
-            }
-            
-            var symbolList = await GetPositionsAsync(credentials);
-            await CloseProfitablePosition(symbolList);
-            var canCreate = await PlaceOrders(symbolList);
-            if(!canCreate)
-            {
-                canCreate = await PlaceOrdersProfit(symbolList);
-            }
-            if (!canCreate && symbolList.Count() < 300)
-            {
-                //await OpenNewPosition(symbolList, CommonOrderSide.Sell);
-            }
-            Thread.Sleep(1000 * 60);
-        }
-
-        private static async Task CreateInSub()
-        {
-            var credentials = GetApiCredentials("API_KEY_2", "API_SECRET_2", "API_PASSPHRASE_2");
-            var accountInfo = await GetAccountOverviewAsync(credentials);
-            if (accountInfo.RiskRatio > .2M)
-            {
-                var result = await restClient!.FuturesApi.Account.TransferToFuturesAccountAsync("USDT", 1, AccountType.Main);
-            }
-
-            var symbolList = await GetPositionsAsync(credentials);
-            await CloseProfitablePosition(symbolList);
-            var canCreate = await PlaceOrders(symbolList);
-            if (!canCreate)
-            {
-                canCreate = await PlaceOrdersProfit(symbolList);
-            }
-            if (symbolList.Count() < 300 && !canCreate)
-            {
-                //await OpenNewPosition(symbolList, CommonOrderSide.Buy);
-            }
-
-            Thread.Sleep(1000 * 60);
-        }
-
-        private static async Task<bool> CloseProfitablePosition(IEnumerable<KucoinPosition> symbolList)
-        {
-            foreach (KucoinPosition position in symbolList)
-            {
-                if (position.UnrealizedPnl > 0.1M || position.UnrealizedPnl < -1M)
-                {
-                    var closeOrderResult = await restClient!.FuturesApi.Trading.PlaceOrderAsync(
-                    position.Symbol, OrderSide.Buy, NewOrderType.Market, 0, closeOrder: true, marginMode: FuturesMarginMode.Cross);
-                }
-            }
-
-            return false;
-        }
-
-        private static async Task<bool> PlaceOrders(IEnumerable<KucoinPosition> symbolList)
-        {
-            foreach (var symbol in symbolList.OrderBy(x=>x.UnrealizedRoePercentage))
-            {
-                if (symbol != null && symbol.CurrentQuantity > 0 && symbol.UnrealizedRoePercentage < -2M)
-                {
-                    var placeOrderResult = await restClient!.FuturesApi.Trading.PlaceOrderAsync(
-                        symbol.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
-                    if (placeOrderResult.Success)
-                    {
-                        return true;
-                    }
-                }
-                if (symbol != null && symbol.CurrentQuantity < 0 && symbol.UnrealizedRoePercentage < -2M)
-                {
-                    var placeOrderResult = await restClient!.FuturesApi.Trading.PlaceOrderAsync(
-                        symbol.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
-                    if (placeOrderResult.Success)
-                    {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        private static async Task<bool> PlaceOrdersProfit(IEnumerable<KucoinPosition> symbolList)
-        {
-            foreach (var symbol in symbolList.OrderBy(x => x.UnrealizedRoePercentage))
-            {
-                if (symbol != null && symbol.CurrentQuantity > 0 && symbol.UnrealizedRoePercentage > 1M)
-                {
-                    var placeOrderResult = await restClient!.FuturesApi.Trading.PlaceOrderAsync(
-                        symbol.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
-                    if (placeOrderResult.Success)
-                    {
-                        return true;
-                    }
-                }
-                if (symbol != null && symbol.CurrentQuantity < 0 && symbol.UnrealizedRoePercentage > 1M)
-                {
-                    var placeOrderResult = await restClient!.FuturesApi.Trading.PlaceOrderAsync(
-                        symbol.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
-                    if (placeOrderResult.Success)
-                    {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        private static async Task OpenNewPosition(IEnumerable<KucoinPosition> symbolList, CommonOrderSide commonOrder)
-        {
-            OrderSide? mode = null;
-            var tickerList = await restClient!.FuturesApi.ExchangeData.GetTickersAsync();
-            foreach (var randomSymbol in tickerList.Data)
-            {
-                if (symbolList.Any(x => x.Symbol == randomSymbol.Symbol))
-                {
-                    continue;
-                }
-
-                var ticker = await restClient.FuturesApi.ExchangeData.GetKlinesAsync(randomSymbol.Symbol, FuturesKlineInterval.OneDay, DateTime.UtcNow.AddDays(-1));
-                var current = ticker.Data.LastOrDefault();
-
-                if (current?.OpenPrice < current?.ClosePrice && commonOrder == CommonOrderSide.Buy)
-                {
-                    mode = OrderSide.Buy;
-                }
-                else if (current?.OpenPrice > current?.ClosePrice && commonOrder == CommonOrderSide.Sell)
-                {
-                    mode = OrderSide.Sell;
-                }
-
-                if (mode == null)
-                {
-                    continue;
-                }
-
-                var placeOrderResult = await restClient.FuturesApi.Trading.PlaceOrderAsync(
-                    randomSymbol.Symbol, mode.Value, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
-
-                if (!placeOrderResult.Success)
-                {
-                    placeOrderResult = await restClient.FuturesApi.Trading.PlaceOrderAsync(
-                    randomSymbol.Symbol, mode.Value, NewOrderType.Market, 25, quantityInQuoteAsset: 2, marginMode: FuturesMarginMode.Cross);
-
-                }
-
-                if (placeOrderResult.Success)
-                {
-                    continue;
-                }
-
-            }
-        }
-
-        private static async Task<KucoinAccountOverview> GetAccountOverviewAsync(KucoinApiCredentials credentials)
-        {
-            restClient = new KucoinRestClient();
-            restClient.SetApiCredentials(credentials);
-            var accountInfo = await restClient.FuturesApi.Account.GetAccountOverviewAsync("USDT");
-            return accountInfo.Data;
-        }
-
     }
 }
