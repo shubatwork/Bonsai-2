@@ -33,8 +33,8 @@ namespace Bonsai.Controller
 
             return ($"{Math.Round(accountInfo1.MarginBalance + accountInfo2.MarginBalance, 2)} - " +
                               $"{Math.Round(accountInfo1.UnrealizedPnl + accountInfo2.UnrealizedPnl, 2)} - " +
-                              $"{Math.Round(accountInfo1.RiskRatio!.Value, 2)} - {positions1.Count()} - " +
-                              $"{Math.Round(accountInfo2.RiskRatio!.Value, 2)} - {positions2.Count()}");
+                              $"{Math.Round(accountInfo1.RiskRatio!.Value, 2)} - {positions1.Count()} - {positions1.Sum(x=> Math.Abs(x.PositionValue))} - " +
+                              $"{Math.Round(accountInfo2.RiskRatio!.Value, 2)} - {positions2.Count()} - {positions2.Sum(x => Math.Abs(x.PositionValue))}");
         }
 
         private static KucoinApiCredentials GetApiCredentials(string apiKey, string apiSecret, string apiPassphrase)
