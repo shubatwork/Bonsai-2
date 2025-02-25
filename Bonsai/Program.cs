@@ -14,6 +14,7 @@ namespace Bonsai
             builder.Services.AddControllers();
             builder.Services.AddTransient<IDataAnalysisService, DataAnalysisService>();
             builder.Services.AddHostedService<DataAnalysisWorkerService>();
+            builder.Services.AddHostedService<CloseWorkerService>();
 
             builder.Services.AddControllersWithViews();
             var app = builder.Build();
