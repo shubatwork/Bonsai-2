@@ -3,8 +3,6 @@ using Kucoin.Net.Enums;
 using Kucoin.Net.Objects.Models.Futures;
 using Kucoin.Net.Objects;
 using CryptoExchange.Net.CommonObjects;
-using System.Net;
-using CryptoExchange.Net.Interfaces;
 
 namespace Bonsai.Services
 {
@@ -32,119 +30,140 @@ namespace Bonsai.Services
             var accountInfoSub = await restClientSub.FuturesApi.Account.GetAccountOverviewAsync("USDT");
 
 
-            foreach (KucoinPosition position in positionsList)
+            foreach (var x in positionsList)
             {
-                if (position.UnrealizedPnl > 0.1M)
+                if (x != null && (x.UnrealizedPnl < -.3M || x.UnrealizedPnl > 1M))
                 {
-                    var closeOrderResult = await restClientMain!.FuturesApi.Trading.PlaceOrderAsync(
-                    position.Symbol, OrderSide.Buy, NewOrderType.Market, 0, closeOrder: true, marginMode: FuturesMarginMode.Cross);
-                }
-            }
-
-            foreach (KucoinPosition position in positionsListSub)
-            {
-                if (position.UnrealizedPnl > 0.1M)
-                {
-                    var closeOrderResult = await restClientSub!.FuturesApi.Trading.PlaceOrderAsync(
-                    position.Symbol, OrderSide.Buy, NewOrderType.Market, 0, closeOrder: true, marginMode: FuturesMarginMode.Cross);
-                }
-            }
-
-            if ((DateTime.Now.Minute % 15) == 0)
-            {
-                var tickerList = await restClientMain!.FuturesApi.ExchangeData.GetTickersAsync();
-
-                var result = new Dictionary<string, CommonOrderSide>();
-                foreach (var ticker in tickerList.Data)
-                {
-                    var data = GetDataForSymbol(ticker.Symbol);
-                    if (data.HasValue)
+                    for (int i = 0; i < 100; i++)
                     {
-                        result.Add(ticker.Symbol, data.Value);
-                    }
-                }
-                foreach (var position in tickerList.Data)
-                {
-                    if (result.TryGetValue(position.Symbol, out var side))
-                    {
-                        if (accountInfoMain.Data.RiskRatio < 0.3M)
+                        var closeOrderResult = await restClientMain!.FuturesApi.Trading.PlaceOrderAsync(x!.Symbol, OrderSide.Sell, NewOrderType.Market,25, quantityInQuoteAsset: i, marginMode: FuturesMarginMode.Cross);
+                        if (!closeOrderResult.Success)
                         {
-                            if (side == CommonOrderSide.Buy && !positionsList.Any(x => x.Symbol == position.Symbol))
-                            {
-                                var success = await restClientMain.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
-                                if (!success.Success)
-                                {
-                                    success = await restClientMain.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 2, marginMode: FuturesMarginMode.Cross);
-                                    if (!success.Success)
-                                    {
-                                        success = await restClientMain.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 3, marginMode: FuturesMarginMode.Cross);
-                                    }
-                                }
-                            }
-                            if (side == CommonOrderSide.Buy && positionsList.Any(x => x.Symbol == position.Symbol && x.UnrealizedRoePercentage > 0))
-                            {
-                                var success = await restClientMain.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
-                                if (!success.Success)
-                                {
-                                    success = await restClientMain.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 2, marginMode: FuturesMarginMode.Cross);
-                                    if (!success.Success)
-                                    {
-                                        success = await restClientMain.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 3, marginMode: FuturesMarginMode.Cross);
-                                    }
-                                }
-                            }
+                             closeOrderResult = await restClientMain!.FuturesApi.Trading.PlaceOrderAsync(x!.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 25M, marginMode: FuturesMarginMode.Cross);
+
                         }
-                        if (accountInfoSub.Data.RiskRatio < 0.3M)
+                        if (!closeOrderResult.Success)
                         {
-                            if (side == CommonOrderSide.Sell && !positionsListSub.Any(x => x.Symbol == position.Symbol))
-                            {
-                                var success = await restClientSub.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
-                                if (!success.Success)
-                                {
-                                    success = await restClientSub.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 2, marginMode: FuturesMarginMode.Cross);
-                                    if (!success.Success)
-                                    {
-                                        success = await restClientSub.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 3, marginMode: FuturesMarginMode.Cross);
-                                    }
-                                }
-                            }
-                            if (side == CommonOrderSide.Sell && positionsListSub.Any(x => x.Symbol == position.Symbol && x.UnrealizedRoePercentage > 0))
-                            {
-                                var success = await restClientSub.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 1, marginMode: FuturesMarginMode.Cross);
-                                if (!success.Success)
-                                {
-                                    success = await restClientSub.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 2, marginMode: FuturesMarginMode.Cross);
-                                    if (!success.Success)
-                                    {
-                                        success = await restClientSub.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 3, marginMode: FuturesMarginMode.Cross);
-                                    }
-                                }
-                            }
+                             closeOrderResult = await restClientMain!.FuturesApi.Trading.PlaceOrderAsync(x!.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 50M, marginMode: FuturesMarginMode.Cross);
+
+                        }
+                        if (!closeOrderResult.Success)
+                        {
+                            await restClientMain!.FuturesApi.Trading.PlaceOrderAsync(x!.Symbol, OrderSide.Sell, NewOrderType.Market, 25, closeOrder: true, marginMode: FuturesMarginMode.Cross); ;
                         }
                     }
                 }
+            }
 
-                Thread.Sleep(1000 * 60 * 2);
+            foreach (var x in positionsListSub)
+            {
+                if (x != null && (x.UnrealizedPnl < -.3M || x.UnrealizedPnl > 1M))
+                {
+                    {
+                        var closeOrderResult = await restClientSub!.FuturesApi.Trading.PlaceOrderAsync(x!.Symbol, OrderSide.Buy, NewOrderType.Market,25, quantityInQuoteAsset: 10M, marginMode: FuturesMarginMode.Cross);
+                        if (!closeOrderResult.Success)
+                        {
+                             closeOrderResult = await restClientSub!.FuturesApi.Trading.PlaceOrderAsync(x!.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 25M, marginMode: FuturesMarginMode.Cross);
+
+                        }
+                        if (!closeOrderResult.Success)
+                        {
+                             closeOrderResult = await restClientSub!.FuturesApi.Trading.PlaceOrderAsync(x!.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 50M, marginMode: FuturesMarginMode.Cross);
+
+                        }
+                        if (!closeOrderResult.Success)
+                        {
+                            await restClientSub!.FuturesApi.Trading.PlaceOrderAsync(x!.Symbol, OrderSide.Sell, NewOrderType.Market, 25, closeOrder: true, marginMode: FuturesMarginMode.Cross); ;
+                        }
+                    }
+                }
+            }
+
+            {
+                //if (DateTime.UtcNow.Minute % 10 == 0)
+                {
+                    var tickerList = await restClientMain!.FuturesApi.ExchangeData.GetTickersAsync();
+                    var result = new Dictionary<string, CommonOrderSide>();
+                    foreach (var ticker in tickerList.Data.Take(30))
+                    {
+                        var data = GetDataForSymbol(ticker.Symbol);
+                        if (data.HasValue)
+                        {
+                            result.Add(ticker.Symbol, data.Value);
+                        }
+                    }
+                    foreach (var position in tickerList.Data)
+                    {
+                        if (result.TryGetValue(position.Symbol, out var side))
+                        {
+                            if(accountInfoMain.Data.RiskRatio < .2M)
+                            {
+                                if (side == CommonOrderSide.Buy && !positionsList.Any(x => x.Symbol == position.Symbol && Math.Abs(x.PositionValue) > 10) && !positionsListSub.Any(x => x.Symbol == position.Symbol))
+                                {
+                                    var success = await restClientMain.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 100, marginMode: FuturesMarginMode.Cross);
+                                    if (!success.Success)
+                                    {
+                                        success = await restClientMain.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 100, marginMode: FuturesMarginMode.Cross);
+                                        if (!success.Success)
+                                        {
+                                            success = await restClientMain.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Buy, NewOrderType.Market, 25, quantityInQuoteAsset: 100, marginMode: FuturesMarginMode.Cross);
+                                        }
+                                    }
+                                    if (success.Success)
+                                    {
+                                        return;
+                                    }
+                                }
+                            }
+                            if (accountInfoSub.Data.RiskRatio < .2M)
+                            {
+                                if (side == CommonOrderSide.Sell && !positionsListSub.Any(x => x.Symbol == position.Symbol && Math.Abs(x.PositionValue) > 10) && !positionsList.Any(x => x.Symbol == position.Symbol))
+                                {
+                                    var success = await restClientSub.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 100, marginMode: FuturesMarginMode.Cross);
+                                    if (!success.Success)
+                                    {
+                                        success = await restClientSub.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 100, marginMode: FuturesMarginMode.Cross);
+                                        if (!success.Success)
+                                        {
+                                            success = await restClientSub.FuturesApi.Trading.PlaceOrderAsync(position.Symbol, OrderSide.Sell, NewOrderType.Market, 25, quantityInQuoteAsset: 100, marginMode: FuturesMarginMode.Cross);
+                                        }
+                                    }
+                                    if (success.Success)
+                                    {
+                                        return;
+                                    }
+                                }
+                                //if (side == CommonOrderSide.Buy && positionsListSub.Any(x => x.Symbol == position.Symbol && x.CurrentQuantity < 0))
+                                //{
+                                //    if (closeOrderResult.Success)
+                                //    {
+                                //        return;
+                                //    }
+                                //}
+                            }
+                        }
+                    }
+                }
             }
 
         }
 
         private static CommonOrderSide? GetDataForSymbol(string symbol)
         {
-            var ticker = restClientMain!.FuturesApi.ExchangeData.GetKlinesAsync(symbol, FuturesKlineInterval.FiveMinutes, DateTime.UtcNow.AddHours(-2)).Result;
+            var ticker = restClientMain!.FuturesApi.ExchangeData.GetKlinesAsync(symbol, FuturesKlineInterval.FiveMinutes, DateTime.UtcNow.AddDays(-2)).Result;
             var count = ticker.Data.Count();
             if (count > 0)
             {
-                var ma7 = ticker.Data.Skip(count - 5).Average(x => x.ClosePrice);
-                var ma25 = ticker.Data.Skip(count - 13).Average(x => x.ClosePrice);
+                var ma7 = ticker.Data.Skip(count - 5).Average(x => (x.OpenPrice + x.ClosePrice) / 2);
+                var ma25 = ticker.Data.Skip(count - 13).Average(x => (x.OpenPrice + x.ClosePrice) / 2);
 
                 if (ma7 > ma25)
                 {
-                    return CommonOrderSide.Buy;
+                    return CommonOrderSide.Sell;
                 }
                 else if (ma7 < ma25)
                 {
-                    return CommonOrderSide.Sell;
+                    return CommonOrderSide.Buy;
                 }
             }
             return null;
